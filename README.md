@@ -1,5 +1,9 @@
 # Mistral OCR - Advanced PDF Processing
 
+## 🌍 مقدمة باللغة العربية
+
+هذا المشروع يوفر سكريبتات Python متقدمة للتفاعل مع Mistral AI API لمعالجة OCR لملفات PDF، مع إمكانيات المعالجة الدفعية وتتبع التكاليف. يدعم النظام معالجة النصوص العربية والمستندات متعددة اللغات بكفاءة عالية.
+
 This project provides advanced Python scripts to interact with the Mistral AI API for PDF OCR processing, with batch processing and cost tracking capabilities.
 
 ## 🚀 `pdf_to_txt_new.py` - Advanced PDF OCR Converter
@@ -119,6 +123,20 @@ python pdf_to_txt.py <path_to_pdf_file>
 - Python 3.8+
 - Mistral AI API key
 - Required packages: `mistralai`, `python-dotenv`
+
+## 🌍 Arabic Language Support
+
+This project fully supports Arabic text processing and multilingual documents. The system has been tested with:
+
+- **Mixed Arabic and English texts**
+- **UTF-8 encoding for Arabic content**
+- **Proper right-to-left text direction handling**
+
+### 📝 Important Notes for Arabic Users
+- Ensure PDF files are saved with UTF-8 encoding
+- The system preserves correct Arabic text ordering
+- Multilingual documents can be processed efficiently
+- Arabic README available: [README_ar.md](README_ar.md)
 
 ## 🤝 Contributing
 
