@@ -1,10 +1,10 @@
-# Mistral OCR - Advanced PDF Processing
+# Mistral OCR - Advanced PDF Processing & Audio Transcription
 
 ## 🌍 مقدمة باللغة العربية
 
-هذا المشروع يوفر سكريبتات Python متقدمة للتفاعل مع Mistral AI API لمعالجة OCR لملفات PDF، مع إمكانيات المعالجة الدفعية وتتبع التكاليف. يدعم النظام معالجة النصوص العربية والمستندات متعددة اللغات بكفاءة عالية.
+هذا المشروع يوفر سكريبتات Python متقدمة للتفاعل مع Mistral AI API لمعالجة OCR لملفات PDF، مع إمكانيات المعالجة الدفعية وتتبع التكاليف. يدعم النظام معالجة النصوص العربية والمستندات متعددة اللغات بكفاءة عالية، بالإضافة إلى تحويل الصوت إلى نص باستخدام نماذج Voxtral المتقدمة.
 
-This project provides advanced Python scripts to interact with the Mistral AI API for PDF OCR processing, with batch processing and cost tracking capabilities.
+This project provides advanced Python scripts for OCR processing, PDF text extraction, audio transcription, and document processing using Mistral AI API. Features batch processing, cost tracking, multilingual support, and speech-to-text capabilities.
 
 ## 🚀 `pdf_to_txt_new.py` - Advanced PDF OCR Converter
 
