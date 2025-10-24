@@ -1,0 +1,58 @@
+# Generated output files
+*.md
+*.csv
+
+# PDF files
+*.pdf
+
+# Audio files
+*.mp3
+*.wav
+*.flac
+*.aac
+*.ogg
+*.m4a
+
+# IDE and workspace files
+*.code-workspace
+.vscode/
+.idea/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Mistral OCR specific
+ocr_usage_tracking.csv
+.gemini/
+
+# Test directories
+test_*/
+test_recursive/
