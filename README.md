@@ -23,6 +23,7 @@ This project provides advanced Python scripts to interact with the Mistral AI AP
 ### 📋 Usage Examples
 
 #### Single File Processing
+
 ```bash
 # Basic usage
 python pdf_to_txt_new.py document.pdf
@@ -32,6 +33,7 @@ python pdf_to_txt_new.py document.pdf --track-file my_log.csv --track-format csv
 ```
 
 #### Directory Processing
+
 ```bash
 # Process all PDFs in directory (recursive)
 python pdf_to_txt_new.py ./documents/
@@ -43,6 +45,7 @@ python pdf_to_txt_new.py ./pdfs --track-file batch_log.txt --track-format txt
 ### 🎯 Processing Behavior
 
 #### Directory Mode
+
 - Recursively finds all `*.pdf` files
 - Skips PDFs that already have corresponding `.md` files
 - Shows progress: `"Skipping 3 already processed PDF(s), 2 remaining"`
@@ -50,6 +53,7 @@ python pdf_to_txt_new.py ./pdfs --track-file batch_log.txt --track-format txt
 - **Outputs Markdown files to the same directory as the source PDFs**
 
 #### Single File Mode
+
 - Checks if PDF has already been processed
 - Asks for confirmation: `"File 'document.pdf' has already been processed. Re-process it? (y/N):"`
 - Creates uniquely named outputs: `document_1.md`, `document_2.md`, etc.
@@ -91,6 +95,7 @@ your_directory/
 **Legacy single-file PDF to text converter.**
 
 ### Usage
+
 ```bash
 python pdf_to_txt.py <path_to_pdf_file>
 ```
@@ -99,7 +104,7 @@ python pdf_to_txt.py <path_to_pdf_file>
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/your-username/mistral-ocr.git
+   git clone https://github.com/EngDawood/mistral-ocr.git
    cd mistral-ocr
    ```
 
@@ -127,6 +132,18 @@ python pdf_to_txt.py <path_to_pdf_file>
 - Mistral AI API key
 - Required packages: `mistralai`, `python-dotenv`
 
+## 🔗 Mistral OCR API Information
+
+**Free Tier**: Mistral offers general OCR processing for up to 1,000 pages for free.
+
+**API Limitations**:
+- Uploaded document files must not exceed 50 MB in size
+- Documents should be no longer than 1,000 pages
+
+**OCR Resources & Cookbooks**:
+- [Tool Usage Guide](https://colab.research.google.com/github/mistralai/cookbook/blob/main/mistral/ocr/tool_usage.ipynb)
+- [Batch OCR Guide](https://colab.research.google.com/github/mistralai/cookbook/blob/main/mistral/ocr/batch_ocr.ipynb)
+
 ## 🌍 Arabic Language Support
 
 This project fully supports Arabic text processing and multilingual documents. The system has been tested with:
@@ -136,6 +153,7 @@ This project fully supports Arabic text processing and multilingual documents. T
 - **Proper right-to-left text direction handling**
 
 ### 📝 Important Notes for Arabic Users
+
 - Ensure PDF files are saved with UTF-8 encoding
 - The system preserves correct Arabic text ordering
 - Multilingual documents can be processed efficiently
