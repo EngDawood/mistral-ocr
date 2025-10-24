@@ -100,6 +100,51 @@ your_directory/
 python pdf_to_txt.py <path_to_pdf_file>
 ```
 
+## 🎵 `transcribe_audio.py` - Audio Transcription Tool
+
+**Advanced audio file transcription using Mistral AI's Voxtral models for high-quality speech-to-text conversion.**
+
+### ✨ Key Features
+
+- **🎯 High-Quality Transcription**: Uses Mistral's Voxtral models for accurate speech recognition
+- **🌍 Multilingual Support**: Supports multiple languages including Arabic, English, and more
+- **📁 Simple File Processing**: Process any audio file with automatic text output
+- **🔧 Command-Line Interface**: Easy-to-use CLI with file path input
+- **📝 Automatic Output**: Saves transcription to `.txt` file with same base name
+- **🛡️ Error Handling**: Comprehensive error handling with user-friendly messages
+
+### 📋 Usage Examples
+
+#### Single Audio File Transcription
+
+```bash
+# Basic usage - transcribe any audio file
+python transcribe_audio.py audio.ogg
+python transcribe_audio.py recording.mp3
+python transcribe_audio.py speech.wav
+```
+
+### 🎯 Processing Behavior
+
+- **Input**: Any audio file (`.ogg`, `.mp3`, `.wav`, `.m4a`, `.flac`, etc.)
+- **Output**: Creates a `.txt` file with the same base name in the same directory
+- **Model**: Uses `voxtral-mini-latest` for optimal transcription quality
+- **Encoding**: UTF-8 encoding for proper multilingual text support
+
+### 📁 Output Example
+
+```
+your_directory/
+├── transcribe_audio.py
+├── speech.ogg
+└── speech.txt              # Transcription output
+```
+
+**Example transcription output:**
+```
+لا هو متابع فهمتي هو بتكون نفس الفكرة نفس الشركة نفس كل شيء لكن الاستراتيجيات...
+```
+
 ## 🛠️ Setup
 
 1. **Clone the repository:**
