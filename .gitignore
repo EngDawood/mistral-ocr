@@ -1,6 +1,6 @@
-# Generated output files
-*.md
+# Generated output files (but keep documentation)
 *.csv
+# Note: .md files are not ignored to keep README.md and documentation
 
 # PDF files
 *.pdf
