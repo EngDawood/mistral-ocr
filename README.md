@@ -17,6 +17,7 @@ This project provides advanced Python scripts to interact with the Mistral AI AP
 - **🧠 Smart Skip Logic**: Automatically skips already processed PDFs
 - **🔄 Re-processing**: Interactive confirmation for single file re-processing with unique naming
 - **📁 Recursive Directory Support**: Processes PDFs in all subdirectories
+- **📂 In-Place Processing**: Processes files from any directory and outputs Markdown files to the same location
 - **📊 Comprehensive Logging**: Tracks filename, pages, timestamps, costs, and output paths
 
 ### 📋 Usage Examples
@@ -46,11 +47,13 @@ python pdf_to_txt_new.py ./pdfs --track-file batch_log.txt --track-format txt
 - Skips PDFs that already have corresponding `.md` files
 - Shows progress: `"Skipping 3 already processed PDF(s), 2 remaining"`
 - Processes only new files
+- **Outputs Markdown files to the same directory as the source PDFs**
 
 #### Single File Mode
 - Checks if PDF has already been processed
 - Asks for confirmation: `"File 'document.pdf' has already been processed. Re-process it? (y/N):"`
 - Creates uniquely named outputs: `document_1.md`, `document_2.md`, etc.
+- **Outputs the Markdown file to the same directory as the source PDF**
 
 ### 📊 Cost Tracking
 
@@ -75,12 +78,12 @@ your_directory/
 ├── ocr_usage_tracking.csv          # Automatic cost tracking
 ├── documents/
 │   ├── report.pdf
-│   ├── report.md                    # OCR output
+│   ├── report.md                    # OCR output (same directory)
 │   ├── data.pdf
-│   └── data.md                      # OCR output
+│   └── data.md                      # OCR output (same directory)
 └── subfolder/
     ├── analysis.pdf
-    └── analysis.md                  # OCR output
+    └── analysis.md                  # OCR output (same directory)
 ```
 
 ## 📄 `pdf_to_txt.py` - Basic PDF OCR Converter
