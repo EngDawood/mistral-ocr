@@ -1,6 +1,6 @@
-# Mistral OCR and Audio Transcription
+# Mistral OCR - Advanced PDF Processing
 
-This project provides Python scripts to interact with the Mistral AI API for OCR and audio transcription, with advanced batch processing and cost tracking capabilities.
+This project provides advanced Python scripts to interact with the Mistral AI API for PDF OCR processing, with batch processing and cost tracking capabilities.
 
 ## 🚀 `pdf_to_txt_new.py` - Advanced PDF OCR Converter
 
@@ -86,15 +86,6 @@ your_directory/
 ### Usage
 ```bash
 python pdf_to_txt.py <path_to_pdf_file>
-```
-
-## 🎵 `transcribe_audio.py` - Audio Transcription
-
-**Audio file to text transcription using Mistral Audio API.**
-
-### Usage
-```bash
-python transcribe_audio.py <path_to_audio_file>
 ```
 
 ## 🛠️ Setup
