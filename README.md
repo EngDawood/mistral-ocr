@@ -111,10 +111,17 @@ python transcribe_audio.py <path_to_audio_file>
    ```
 
 3. **Set up your API key:**
-   Create a `.env` file in the root of the project:
+   Copy the example environment file and fill in your API key:
+   ```bash
+   cp .env.example .env
    ```
-   MISTRAL_API_KEY=your_api_key_here
+
+   Then edit `.env` with your actual Mistral API key:
    ```
+   MISTRAL_API_KEY=your_actual_api_key_here
+   ```
+
+   Get your API key from: https://console.mistral.ai/api-keys
 
 ## 📋 Requirements
 
