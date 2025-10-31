@@ -52,6 +52,8 @@ Thumbs.db
 # Mistral OCR specific
 ocr_usage_tracking.csv
 .gemini/
+.clinerules/*
+
 
 # Audio transcription scripts (keep in directory but don't track)
 # transcribe_audio.py  # Now tracked as it's a working feature
@@ -60,3 +62,6 @@ transcribe_audio_new.py
 # Test directories
 test_*/
 test_recursive/
+
+
+# Dir
