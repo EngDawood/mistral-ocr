@@ -6,6 +6,22 @@
 
 This project provides advanced Python scripts for OCR processing, PDF text extraction, audio transcription, and document processing using Mistral AI API. Features batch processing, cost tracking, multilingual support, and speech-to-text capabilities.
 
+## 📸 Example Output
+
+Here's an example of the OCR processing results from an Arabic PDF document. The tool successfully extracts Arabic text and converts it to Markdown format while preserving the original content structure and formatting. This demonstrates the tool's capability to handle Arabic language documents effectively.
+
+
+### Example Output File (output.md)
+```markdown
+محمد سيد سليمان: أثر العلاج بالحركة في تخفيف شدة أعراض اضطراب تشتت الانتباه المصحوب بفرط الحركة وتحسين سرعة المعالجة لدى الأطفال بالمرحلة الابتدائية
+
+محمد سيد سعيد سليمان<br>كلية التربية والآداب- جامعة الحدود الشمالية<br>قدم المنشر 1438/3/29هـ - وفيل 13 /6/ 1438م
+
+المستخلص: هدفت الدراسة الحالية إلى الكشف عن أثر التمارين البدنية المتمثلة في الرياضة الذهنية من خلال التدريب الحركي في التخفيف من شدة أعراض اضطراب تشتت الانتباه وفرط الحركة (اللانتباهية، فرط الحركة، الاندفاعية)، وفي تحسين سرعة المعالجة لدى الأطفال ذوي اضطراب تشتت الانتباه وفرط الحركة، تكونت عينة الدراسة من (23) طالباً في الصفوف الدراسية من الثاني وحتى السادس الابتدائي، ثم تقسيمهم إلى عينتين: تجريبية (12) طالباً، وضابطة (11) طالبًا، استخدم الباحث ثلاث أدوات للدراسة شملت: قائمة التعرف على اضطراب تشتت الانتباه وفرط الحركة ، مقياس اضطراب تشتت الانتباه وفرط الحركة، اختبارات سرعة المعالجة، حركات الرياضة الذهنية. استخدم الباحث المنهج شبه التجريبي، أشارت نتائج الدراسة إلى : وجود فروق دالة إحصائيًا بين متوسطي درجات المحموعتين التجريبية والضابطة في بُعد تشتت الانتباه لصالح المحموعة التجريبية، عدم وجود فروق دالة إحصائيًا بين متوسطي درجات المحموعتين التجريبية والضابطة في بُعدي الفرط الحركي والاندفاعية ، وجود فروق دالة إحصائياً بين متوسطي درجات المجمم
+```
+
+![OCR Processing Example](screenshot/image.png)
+
 ## 🚀 `pdf_to_txt_new.py` - Advanced PDF OCR Converter
 
 **Enhanced PDF to Markdown converter with batch processing, cost tracking, and smart file management.**
@@ -155,7 +171,14 @@ your_directory/
    pip install -r requirements.txt
    ```
 
-3. **Set up your API key:**
+3. **Get your free Mistral API key:**
+   - Visit [Mistral AI Console](https://console.mistral.ai/api-keys)
+   - Sign up for a free account
+   - Navigate to API Keys section
+   - Create a new API key
+   - Copy the API key (keep it secure)
+
+4. **Set up your API key:**
    Copy the example environment file and fill in your API key:
    ```bash
    cp .env.example .env
@@ -165,8 +188,6 @@ your_directory/
    ```
    MISTRAL_API_KEY=your_actual_api_key_here
    ```
-
-   Get your API key from: https://console.mistral.ai/api-keys
 
 ## 📋 Requirements
 
