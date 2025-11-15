@@ -112,12 +112,12 @@ def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None) -> 
 
     # Save images separately
     image_count = 0
-    for page in response.pages:
+    for page_idx, page in enumerate(response.pages, start=1):
         if hasattr(page, 'images') and page.images:
             for img in page.images:
                 if hasattr(img, 'image_base64') and img.image_base64:
                     img_data = base64.b64decode(img.image_base64)
-                    img_id = getattr(img, 'id', f'page{page.number}_img{image_count}')
+                    img_id = getattr(img, 'id', f'page{page_idx}_img{image_count}')
                     img_path = pdf_path.parent / f"{pdf_path.stem}_{img_id}.png"
                     img_path.write_bytes(img_data)
                     image_count += 1
