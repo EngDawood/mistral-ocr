@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Advanced PDF to TXT converter using Mistral OCR.
+Advanced PDF to Markdown converter using Mistral OCR.
 
 FEATURES:
-- Single file processing: Convert individual PDF files to markdown text
+- Single file processing: Convert individual PDF files to markdown (preserves formatting)
 - Directory processing: Recursively process all PDFs in directories and subdirectories
 - Smart skip logic: Automatically skip PDFs that have already been processed (have .md files)
 - Cost tracking: Automatic cost calculation ($0.001 per page) and logging
@@ -42,7 +42,7 @@ REQUIREMENTS:
 - Python packages: mistralai, python-dotenv
 
 OUTPUT:
-- Markdown files (.md) with extracted text
+- Markdown files (.md) with extracted text (preserves headings, tables, and figure references)
 - Automatic cost tracking in CSV format
 - Optional custom tracking files
 """
@@ -70,7 +70,7 @@ def markdown_to_text(content: str) -> str:
 
 
 def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None) -> tuple[Path, int]:
-    """Upload the PDF, request OCR, and write the plain-text output.
+    """Upload the PDF, request OCR, and write the markdown output.
 
     Args:
         pdf_path: Path to the PDF file
@@ -109,9 +109,10 @@ def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None) -> 
 
     page_count = len(response.pages)
     markdown_pages = [page.markdown for page in response.pages]
-    plain_text = markdown_to_text("\n\n".join(markdown_pages))
+    # Keep the markdown format to preserve headings, tables, and figure references
+    markdown_content = "\n\n".join(markdown_pages)
 
-    output_path.write_text(plain_text, encoding="utf-8")
+    output_path.write_text(markdown_content, encoding="utf-8")
     return output_path, page_count
 
 
@@ -169,7 +170,7 @@ def write_tracking_info(tracking_file: Path, filename: str, page_count: int, out
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Convert PDF(s) to plain text using Mistral OCR. Can process a single PDF file or all PDFs in a directory.",
+        description="Convert PDF(s) to markdown using Mistral OCR. Can process a single PDF file or all PDFs in a directory.",
     )
     parser.add_argument("input", help="Path to PDF file or directory containing PDF files to convert.")
     parser.add_argument(
