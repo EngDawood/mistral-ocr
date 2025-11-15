@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-Single-file PDF to TXT converter using Mistral OCR.
+Single-file PDF to Markdown converter using Mistral OCR.
 
-Reads one PDF, sends it to Mistral, and writes a UTF-8 text file
-with the same stem in the same directory. Requires MISTRAL_API_KEY.
+Reads one PDF, sends it to Mistral, and writes a UTF-8 markdown file
+with the same stem in the same directory. Preserves rich markdown formatting
+including headings, tables, and figure references. Requires MISTRAL_API_KEY.
 """
 from __future__ import annotations
 
@@ -27,7 +28,7 @@ def markdown_to_text(content: str) -> str:
 
 
 def convert_pdf_to_txt(pdf_path: Path, model: str) -> Path:
-    """Upload the PDF, request OCR, and write the plain-text output."""
+    """Upload the PDF, request OCR, and write the markdown output."""
     pdf_path = pdf_path.expanduser().resolve()
     if not pdf_path.is_file():
         raise FileNotFoundError(f"PDF not found: {pdf_path}")
@@ -53,16 +54,17 @@ def convert_pdf_to_txt(pdf_path: Path, model: str) -> Path:
     )
 
     markdown_pages = [page.markdown for page in response.pages]
-    plain_text = markdown_to_text("\n\n".join(markdown_pages))
+    # Keep the markdown format to preserve headings, tables, and figure references
+    markdown_content = "\n\n".join(markdown_pages)
 
     output_path = pdf_path.with_suffix(".md")
-    output_path.write_text(plain_text, encoding="utf-8")
+    output_path.write_text(markdown_content, encoding="utf-8")
     return output_path
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Convert a PDF to plain text using Mistral OCR.",
+        description="Convert a PDF to markdown using Mistral OCR.",
     )
     parser.add_argument("pdf", help="Path to the PDF file to convert.")
     parser.add_argument(
@@ -81,7 +83,7 @@ def main() -> None:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"OCR complete. Text saved to {output_path}")
+    print(f"OCR complete. Markdown saved to {output_path}")
 
 
 if __name__ == "__main__":
