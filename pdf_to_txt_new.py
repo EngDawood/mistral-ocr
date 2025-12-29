@@ -4,12 +4,13 @@ Advanced PDF to Text/Markdown converter using Mistral OCR.
 
 FEATURES:
 - Single file processing: Convert individual PDF files to plain text or markdown
-- URL processing: Download and process PDFs directly from URLs
+- URL processing: Download and process PDFs directly from URLs (auto-cleanup after OCR)
 - Directory processing: Recursively process all PDFs in directories and subdirectories
 - Smart skip logic: Only skip PDFs with existing files of the target extension
 - User confirmation: Interactive confirmation for re-processing (only when target file exists)
 - Unique naming: Append _1, _2, etc. to avoid overwriting existing files
 - Format selection: --txt (default) for plain text, --md for markdown
+- Auto-cleanup: Downloaded PDFs are deleted after OCR unless --keep flag is used
 
 USAGE EXAMPLES:
     # Process single file to plain text (default)
@@ -18,11 +19,14 @@ USAGE EXAMPLES:
     # Process single file to markdown
     python pdf_to_txt_new.py document.pdf --md
 
-    # Download and process PDF from URL
+    # Download and process PDF from URL (PDF deleted after OCR)
     python pdf_to_txt_new.py --url https://example.com/document.pdf
 
     # Download PDF and convert to markdown
     python pdf_to_txt_new.py --url https://example.com/document.pdf --md
+
+    # Download and keep the PDF file after OCR
+    python pdf_to_txt_new.py --url https://example.com/document.pdf --keep
 
     # Use custom API key
     python pdf_to_txt_new.py document.pdf --api-key your_api_key_here
@@ -232,6 +236,11 @@ def parse_args() -> argparse.Namespace:
         "--api-key",
         help="Mistral API key (overrides MISTRAL_API_KEY environment variable).",
     )
+    parser.add_argument(
+        "--keep",
+        action="store_true",
+        help="Keep downloaded PDF file after processing (default: delete after OCR).",
+    )
     format_group = parser.add_mutually_exclusive_group()
     format_group.add_argument(
         "--txt",
@@ -263,10 +272,12 @@ def main() -> None:
         to_txt = not args.md  # Convert to plain text unless --md is specified
 
         # Handle URL input
+        downloaded_pdf_path = None  # Track downloaded file for cleanup
         if args.url:
             try:
                 # Download PDF from URL to current directory
                 downloaded_pdf = download_pdf_from_url(args.url, Path.cwd())
+                downloaded_pdf_path = downloaded_pdf  # Store for cleanup
                 input_path = downloaded_pdf
 
                 # Process single downloaded file
@@ -275,6 +286,10 @@ def main() -> None:
                     response = input(f"File '{target_file.name}' already exists. Re-process? (y/N): ").strip().lower()
                     if response not in ['y', 'yes']:
                         print("Skipping processing.")
+                        # Clean up downloaded PDF if not keeping
+                        if not args.keep and downloaded_pdf_path and downloaded_pdf_path.exists():
+                            downloaded_pdf_path.unlink()
+                            print(f"Deleted downloaded PDF: {downloaded_pdf_path.name}")
                         return
 
                 pdf_files = [input_path]
@@ -340,6 +355,11 @@ def main() -> None:
 
         print(f"\nProcessing complete!")
         print(f"Files processed: {processed_count}/{total_files}")
+
+        # Clean up downloaded PDF if not keeping
+        if args.url and not args.keep and downloaded_pdf_path and downloaded_pdf_path.exists():
+            downloaded_pdf_path.unlink()
+            print(f"Deleted downloaded PDF: {downloaded_pdf_path.name}")
 
     except Exception as exc:  # pragma: no cover - simple CLI error surfacing
         print(f"Error: {exc}", file=sys.stderr)
