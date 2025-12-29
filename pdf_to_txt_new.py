@@ -1,43 +1,47 @@
 #!/usr/bin/env python3
 """
-Advanced PDF to Markdown/Text converter using Mistral OCR.
+Advanced PDF to Text/Markdown converter using Mistral OCR.
 
 FEATURES:
-- Single file processing: Convert individual PDF files to markdown or plain text
+- Single file processing: Convert individual PDF files to plain text or markdown
 - Directory processing: Recursively process all PDFs in directories and subdirectories
-- Smart skip logic: Automatically skip PDFs that have already been processed (have .md files)
-- User confirmation: Interactive confirmation for re-processing single files
+- Smart skip logic: Only skip PDFs with existing files of the target extension
+- User confirmation: Interactive confirmation for re-processing (only when target file exists)
 - Unique naming: Append _1, _2, etc. to avoid overwriting existing files
-- Text conversion: Optional --txt flag to convert to plain text instead of markdown
+- Format selection: --txt (default) for plain text, --md for markdown
 
 USAGE EXAMPLES:
-    # Process single file to markdown
+    # Process single file to plain text (default)
     python pdf_to_txt_new.py document.pdf
 
-    # Process single file to plain text
+    # Process single file to markdown
+    python pdf_to_txt_new.py document.pdf --md
+
+    # Explicit plain text (same as default)
     python pdf_to_txt_new.py document.pdf --txt
 
     # Process all PDFs in directory (recursive)
     python pdf_to_txt_new.py ./documents/
+    python pdf_to_txt_new.py ./documents/ --md
 
 DIRECTORY PROCESSING:
 - Recursively finds all *.pdf files in subdirectories
-- Skips files that already have corresponding *.md files
-- Processes only new or unprocessed PDFs
+- Skips files that already have the target extension (.txt or .md)
+- If file.txt exists and you run with --md, it will process (different extension)
 - Shows progress
 
 SINGLE FILE PROCESSING:
-- Checks if PDF has already been processed (has .md file)
-- Asks for confirmation before re-processing
-- Creates uniquely named output files (_1, _2, etc.) to avoid overwrites
+- Checks if PDF has output file with target extension
+- Asks for confirmation only if target extension file exists
+- Creates uniquely named output files (_1, _2, etc.) when re-processing
 
 REQUIREMENTS:
 - MISTRAL_API_KEY environment variable or .env file
 - Python packages: mistralai, python-dotenv
 
 OUTPUT:
-- Markdown files (.md) with extracted text (preserves headings, tables, and figure references)
-- Or plain text files (.txt) if --txt flag is used
+- Plain text files (.txt) by default
+- Markdown files (.md) with --md flag (preserves headings, tables, figure references)
 """
 from __future__ import annotations
 
@@ -113,8 +117,16 @@ def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None, to_
     return output_path, page_count
 
 
-def find_pdf_files(input_path: Path) -> list[Path]:
-    """Find all PDF files in the given path recursively. If path is a file, return it as a list. If directory, return all PDFs that haven't been processed yet."""
+def find_pdf_files(input_path: Path, target_ext: str = ".txt") -> list[Path]:
+    """Find all PDF files in the given path recursively.
+
+    If path is a file, return it as a list. If directory, return all PDFs that
+    haven't been processed yet (only checks for files with target_ext).
+
+    Args:
+        input_path: Path to PDF file or directory
+        target_ext: Target extension to check for existing files (".txt" or ".md")
+    """
     input_path = input_path.expanduser().resolve()
 
     if input_path.is_file():
@@ -128,21 +140,20 @@ def find_pdf_files(input_path: Path) -> list[Path]:
         if not all_pdf_files:
             raise ValueError(f"No PDF files found in directory: {input_path}")
 
-        # Filter out PDFs that already have corresponding .md or .txt files
+        # Filter out PDFs that already have corresponding file with target extension
         unprocessed_pdfs = []
         for pdf_file in all_pdf_files:
-            md_file = pdf_file.with_suffix(".md")
-            txt_file = pdf_file.with_suffix(".txt")
-            if not md_file.exists() and not txt_file.exists():
+            target_file = pdf_file.with_suffix(target_ext)
+            if not target_file.exists():
                 unprocessed_pdfs.append(pdf_file)
 
         if not unprocessed_pdfs:
-            print(f"All {len(all_pdf_files)} PDF files in directory have already been processed.")
+            print(f"All {len(all_pdf_files)} PDF files in directory already have {target_ext} files.")
             return []
 
         skipped_count = len(all_pdf_files) - len(unprocessed_pdfs)
         if skipped_count > 0:
-            print(f"Skipping {skipped_count} already processed PDF(s), {len(unprocessed_pdfs)} remaining.")
+            print(f"Skipping {skipped_count} PDF(s) with existing {target_ext} files, {len(unprocessed_pdfs)} remaining.")
 
         return sorted(unprocessed_pdfs)  # Sort for consistent processing order
     else:
@@ -151,7 +162,7 @@ def find_pdf_files(input_path: Path) -> list[Path]:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Convert PDF(s) to markdown or text using Mistral OCR. Can process a single PDF file or all PDFs in a directory.",
+        description="Convert PDF(s) to text or markdown using Mistral OCR. Can process a single PDF file or all PDFs in a directory.",
     )
     parser.add_argument("input", help="Path to PDF file or directory containing PDF files to convert.")
     parser.add_argument(
@@ -159,10 +170,16 @@ def parse_args() -> argparse.Namespace:
         default="mistral-ocr-latest",
         help="OCR model name (default: mistral-ocr-latest).",
     )
-    parser.add_argument(
+    format_group = parser.add_mutually_exclusive_group()
+    format_group.add_argument(
         "--txt",
         action="store_true",
-        help="Convert to plain text instead of markdown (default: False).",
+        help="Convert to plain text (default behavior).",
+    )
+    format_group.add_argument(
+        "--md",
+        action="store_true",
+        help="Convert to markdown instead of plain text.",
     )
     return parser.parse_args()
 
@@ -172,32 +189,34 @@ def main() -> None:
     try:
         input_path = Path(args.input)
 
-        # Check if it's a single file that might already be processed
+        # Determine output extension based on --md flag (default is .txt)
+        output_extension = ".md" if args.md else ".txt"
+        to_txt = not args.md  # Convert to plain text unless --md is specified
+
+        # Check if it's a single file that might already be processed (only check target extension)
         if input_path.is_file() and input_path.suffix.lower() == ".pdf":
-            md_file = input_path.with_suffix(".md")
-            txt_file = input_path.with_suffix(".txt")
-            if md_file.exists() or txt_file.exists():
-                response = input(f"File '{input_path.name}' has already been processed. Re-process it? (y/N): ").strip().lower()
+            target_file = input_path.with_suffix(output_extension)
+            if target_file.exists():
+                response = input(f"File '{target_file.name}' already exists. Re-process? (y/N): ").strip().lower()
                 if response not in ['y', 'yes']:
                     print("Skipping processing.")
                     return
 
-        # Find all PDF files to process
-        pdf_files = find_pdf_files(input_path)
+        # Find all PDF files to process (only skip files with target extension)
+        pdf_files = find_pdf_files(input_path, output_extension)
         total_files = len(pdf_files)
 
         if total_files == 1:
             print(f"Processing 1 PDF file...")
-        else:
+        elif total_files > 1:
             print(f"Processing {total_files} PDF files from directory...")
+        else:
+            return  # No files to process
 
         processed_count = 0
 
         for pdf_file in pdf_files:
             try:
-                # Determine output extension based on --txt flag
-                output_extension = ".txt" if args.txt else ".md"
-
                 # For single files that are being re-processed, modify output filename
                 output_path_original = pdf_file.with_suffix(output_extension)
                 if input_path.is_file() and output_path_original.exists():
@@ -216,7 +235,7 @@ def main() -> None:
                     output_path = output_path_original
 
                 print(f"Processing: {pdf_file.name}")
-                output_path, page_count = convert_pdf_to_txt(pdf_file, args.model, output_path, args.txt)
+                output_path, page_count = convert_pdf_to_txt(pdf_file, args.model, output_path, to_txt)
 
                 processed_count += 1
 
