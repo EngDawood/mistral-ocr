@@ -11,6 +11,7 @@ FEATURES:
 - Unique naming: Append _1, _2, etc. to avoid overwriting existing files
 - Format selection: --txt (default) for plain text, --md for markdown
 - Auto-cleanup: Downloaded PDFs are deleted after OCR unless --keep flag is used
+- Dependency checking: Automatically checks and offers to install missing packages
 
 USAGE EXAMPLES:
     # Process single file to plain text (default)
@@ -50,8 +51,9 @@ SINGLE FILE PROCESSING:
 - Creates uniquely named output files (_1, _2, etc.) when re-processing
 
 REQUIREMENTS:
+- Python 3.8+
 - MISTRAL_API_KEY environment variable, .env file, or --api-key parameter
-- Python packages: mistralai, python-dotenv
+- Python packages: mistralai, python-dotenv (auto-checked on startup)
 
 OUTPUT:
 - Plain text files (.txt) by default
@@ -62,6 +64,7 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -70,6 +73,69 @@ from urllib.request import urlopen
 
 from dotenv import load_dotenv
 from mistralai import DocumentURLChunk, Mistral
+
+
+def check_and_install_dependencies():
+    """Check if required packages are installed and offer to install them if missing."""
+    missing_packages = []
+
+    # Check for python-dotenv
+    try:
+        import dotenv
+    except ImportError:
+        missing_packages.append('python-dotenv')
+
+    # Check for mistralai
+    try:
+        import mistralai
+    except ImportError:
+        missing_packages.append('mistralai')
+
+    if missing_packages:
+        print("\n" + "="*70, file=sys.stderr)
+        print("ERROR: Missing required packages", file=sys.stderr)
+        print("="*70, file=sys.stderr)
+        for pkg in missing_packages:
+            print(f"  ✗ {pkg}", file=sys.stderr)
+
+        print("\nTo install missing packages, run one of these commands:", file=sys.stderr)
+        print(f"  pip install {' '.join(missing_packages)}", file=sys.stderr)
+        print("  pip install -r requirements.txt", file=sys.stderr)
+
+        # Ask user if they want auto-install
+        try:
+            print("\nWould you like to install them now? (y/N): ", end='', file=sys.stderr)
+            sys.stderr.flush()
+            response = input().strip().lower()
+
+            if response in ['y', 'yes']:
+                print("\nInstalling missing packages...", file=sys.stderr)
+                for pkg in missing_packages:
+                    try:
+                        print(f"  Installing {pkg}...", file=sys.stderr)
+                        subprocess.check_call(
+                            [sys.executable, '-m', 'pip', 'install', pkg],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.PIPE
+                        )
+                        print(f"  ✓ Successfully installed {pkg}", file=sys.stderr)
+                    except subprocess.CalledProcessError as e:
+                        print(f"  ✗ Failed to install {pkg}", file=sys.stderr)
+                        if e.stderr:
+                            print(f"     Error: {e.stderr.decode()}", file=sys.stderr)
+                        sys.exit(1)
+
+                print("\n" + "="*70, file=sys.stderr)
+                print("✓ All dependencies installed successfully!", file=sys.stderr)
+                print("="*70, file=sys.stderr)
+                print("\nPlease run the script again to use the newly installed packages.", file=sys.stderr)
+                sys.exit(0)
+            else:
+                print("\nInstallation cancelled. Please install packages manually.", file=sys.stderr)
+                sys.exit(1)
+        except (EOFError, KeyboardInterrupt):
+            print("\n\nInstallation cancelled.", file=sys.stderr)
+            sys.exit(1)
 
 
 def download_pdf_from_url(url: str, output_dir: Path = None) -> Path:
@@ -367,4 +433,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    check_and_install_dependencies()
     main()
