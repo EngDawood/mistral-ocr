@@ -46,38 +46,60 @@ For editing Arabic markdown content, use the online Arabic markdown editor at ht
 
 ## 🚀 `pdf_to_txt_new.py` - Advanced PDF OCR Converter
 
-**Enhanced PDF to Markdown converter with batch processing, cost tracking, and smart file management.**
+**Enhanced PDF to Text/Markdown converter with batch processing, URL support, automatic dependency management, and smart file management.**
 
 ### ✨ Key Features
 
+- **📄 Flexible Output Formats**: Default plain text (`.txt`) or markdown (`.md`) with `--md` flag
+- **🌐 URL Support**: Download and process PDFs directly from URLs with auto-cleanup
 - **🔄 Batch Processing**: Process single files or entire directories recursively
-- **💰 Cost Tracking**: Automatic cost calculation ($0.001/page) with detailed CSV logging
-- **🧠 Smart Skip Logic**: Automatically skips already processed PDFs
+- **🧠 Smart Skip Logic**: Only skips PDFs with existing files of the target extension
 - **🔄 Re-processing**: Interactive confirmation for single file re-processing with unique naming
+- **🔑 Custom API Key**: Use `--api-key` parameter or environment variable
+- **♻️ Auto-Cleanup**: Downloaded PDFs are deleted after OCR unless `--keep` flag is used
+- **📦 Dependency Checking**: Automatically checks and offers to install missing packages
 - **📁 Recursive Directory Support**: Processes PDFs in all subdirectories
-- **📂 In-Place Processing**: Processes files from any directory and outputs Markdown files to the same location
-- **📊 Comprehensive Logging**: Tracks filename, pages, timestamps, costs, and output paths
+- **📂 In-Place Processing**: Outputs files to the same location as source PDFs
 
 ### 📋 Usage Examples
 
 #### Single File Processing
 
 ```bash
-# Basic usage
+# Process to plain text (default)
 python pdf_to_txt_new.py document.pdf
 
-# With custom tracking
-python pdf_to_txt_new.py document.pdf --track-file my_log.csv --track-format csv
+# Process to markdown
+python pdf_to_txt_new.py document.pdf --md
+
+# Explicit plain text
+python pdf_to_txt_new.py document.pdf --txt
+
+# Use custom API key
+python pdf_to_txt_new.py document.pdf --api-key your_api_key_here
+```
+
+#### URL Processing
+
+```bash
+# Download and process PDF from URL (auto-cleanup)
+python pdf_to_txt_new.py --url https://example.com/document.pdf
+
+# Download and convert to markdown
+python pdf_to_txt_new.py --url https://example.com/document.pdf --md
+
+# Download and keep the PDF file after OCR
+python pdf_to_txt_new.py --url https://example.com/document.pdf --keep
 ```
 
 #### Directory Processing
 
 ```bash
-# Process all PDFs in directory (recursive)
+# Process all PDFs in directory (recursive) to text
 python pdf_to_txt_new.py ./documents/
 
-# Process with custom tracking
-python pdf_to_txt_new.py ./pdfs --track-file batch_log.txt --track-format txt
+# Process all PDFs to markdown
+python pdf_to_txt_new.py ./documents/ --md
 ```
 
 ### 🎯 Processing Behavior
@@ -85,48 +107,102 @@ python pdf_to_txt_new.py ./pdfs --track-file batch_log.txt --track-format txt
 #### Directory Mode
 
 - Recursively finds all `*.pdf` files
-- Skips PDFs that already have corresponding `.md` files
-- Shows progress: `"Skipping 3 already processed PDF(s), 2 remaining"`
-- Processes only new files
-- **Outputs Markdown files to the same directory as the source PDFs**
+- **Smart Skip Logic**: Only skips PDFs with existing files of the **target extension**
+  - Example: If `file.txt` exists and you run with `--md`, it will still process
+- Shows progress: `"Skipping 3 PDF(s) with existing .txt files, 2 remaining"`
+- Processes only new files or files without target extension
+- **Outputs files to the same directory as the source PDFs**
 
 #### Single File Mode
 
-- Checks if PDF has already been processed
-- Asks for confirmation: `"File 'document.pdf' has already been processed. Re-process it? (y/N):"`
-- Creates uniquely named outputs: `document_1.md`, `document_2.md`, etc.
-- **Outputs the Markdown file to the same directory as the source PDF**
+- Checks if PDF has output file with **target extension only**
+  - Example: If `file.txt` exists and you run with `--md`, no confirmation needed
+- Asks for confirmation only when target extension file exists
+- Creates uniquely named outputs: `document_1.txt`, `document_2.md`, etc.
+- **Outputs the file to the same directory as the source PDF**
 
-### 📊 Cost Tracking
+#### URL Mode
 
-**Automatic Tracking File**: `ocr_usage_tracking.csv` (created next to the script)
+- Downloads PDF from URL to current directory
+- Processes downloaded PDF like a local file
+- **Auto-cleanup**: Deletes downloaded PDF after OCR (unless `--keep` flag is used)
+- Maintains all other processing features
 
-```csv
-filename,page_count,processing_date,cost_usd,output_path
-document.pdf,6,2025-10-24T22:30:38,0.0060,/path/document.md
-batch_file.pdf,25,2025-10-24T22:31:15,0.0250,/path/batch_file.md
+### 📦 Automatic Dependency Management
+
+The script automatically checks for required packages and offers to install them:
+
+```text
+======================================================================
+ERROR: Missing required packages
+======================================================================
+  ✗ python-dotenv
+  ✗ mistralai
+
+To install missing packages, run one of these commands:
+  pip install python-dotenv mistralai
+  pip install -r requirements.txt
+
+Would you like to install them now? (y/N):
 ```
 
-**Cost Calculation**: `$0.001 × page_count`
-- 6 pages = $0.0060
-- 100 pages = $0.1000
-- 1000 pages = $1.0000
+**Features:**
+- ✅ Automatic detection of missing packages
+- ✅ Interactive installation prompt
+- ✅ Clear installation instructions
+- ✅ Safe permission-based installation
+- ✅ Silent operation when packages are installed
 
 ### 📁 Output Structure
 
-```
+```text
 your_directory/
 ├── pdf_to_txt_new.py
-├── ocr_usage_tracking.csv          # Automatic cost tracking
 ├── documents/
 │   ├── report.pdf
-│   ├── report.md                    # OCR output (same directory)
+│   ├── report.txt                   # Default: plain text output
 │   ├── data.pdf
-│   └── data.md                      # OCR output (same directory)
+│   └── data.md                      # With --md flag
 └── subfolder/
     ├── analysis.pdf
-    └── analysis.md                  # OCR output (same directory)
+    ├── analysis.txt                 # Default output
+    └── downloaded_document.pdf      # URL downloads (deleted unless --keep)
 ```
+
+**Output Format Examples:**
+- `python pdf_to_txt_new.py doc.pdf` → `doc.txt` (default)
+- `python pdf_to_txt_new.py doc.pdf --md` → `doc.md`
+- `python pdf_to_txt_new.py --url https://example.com/file.pdf` → `file.txt` (PDF deleted after)
+- `python pdf_to_txt_new.py --url https://example.com/file.pdf --keep` → `file.txt` + `file.pdf` (kept)
+
+### 🎛️ Command Line Options
+
+```bash
+python pdf_to_txt_new.py [input] [options]
+
+Arguments:
+  input                 Path to PDF file or directory (optional with --url)
+
+Options:
+  --url URL            Download and process PDF from URL
+  --md                 Convert to markdown instead of plain text
+  --txt                Explicitly convert to plain text (default)
+  --api-key KEY        Use custom Mistral API key
+  --keep               Keep downloaded PDF file after processing
+  --model MODEL        OCR model name (default: mistral-ocr-latest)
+  -h, --help           Show help message
+```
+
+**Common Use Cases:**
+
+| Command | Description |
+|---------|-------------|
+| `pdf_to_txt_new.py file.pdf` | Process to plain text (default) |
+| `pdf_to_txt_new.py file.pdf --md` | Process to markdown |
+| `pdf_to_txt_new.py --url https://example.com/doc.pdf` | Download, OCR, delete PDF |
+| `pdf_to_txt_new.py --url URL --keep` | Download, OCR, keep PDF |
+| `pdf_to_txt_new.py ./docs/` | Process all PDFs in directory |
+| `pdf_to_txt_new.py file.pdf --api-key KEY` | Use custom API key |
 
 ## 📄 `pdf_to_txt.py` - Basic PDF OCR Converter
 
@@ -212,8 +288,8 @@ your_directory/
 ## 📋 Requirements
 
 - Python 3.8+
-- Mistral AI API key
-- Required packages: `mistralai`, `python-dotenv`
+- Mistral AI API key (get free at [console.mistral.ai](https://console.mistral.ai/api-keys))
+- Required packages: `mistralai`, `python-dotenv` (auto-checked by `pdf_to_txt_new.py`)
 
 ## 🔗 Mistral OCR API Information
 
