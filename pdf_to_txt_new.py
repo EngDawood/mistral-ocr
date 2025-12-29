@@ -17,6 +17,9 @@ USAGE EXAMPLES:
     # Process single file to markdown
     python pdf_to_txt_new.py document.pdf --md
 
+    # Use custom API key
+    python pdf_to_txt_new.py document.pdf --api-key your_api_key_here
+
     # Explicit plain text (same as default)
     python pdf_to_txt_new.py document.pdf --txt
 
@@ -36,7 +39,7 @@ SINGLE FILE PROCESSING:
 - Creates uniquely named output files (_1, _2, etc.) when re-processing
 
 REQUIREMENTS:
-- MISTRAL_API_KEY environment variable or .env file
+- MISTRAL_API_KEY environment variable, .env file, or --api-key parameter
 - Python packages: mistralai, python-dotenv
 
 OUTPUT:
@@ -64,7 +67,7 @@ def markdown_to_text(content: str) -> str:
     return text.strip()
 
 
-def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None, to_txt: bool = False) -> tuple[Path, int]:
+def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None, to_txt: bool = False, api_key: str = None) -> tuple[Path, int]:
     """Upload the PDF, request OCR, and write the markdown or text output.
 
     Args:
@@ -72,6 +75,7 @@ def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None, to_
         model: OCR model to use
         output_path: Custom output path (optional, defaults to pdf_path with .md or .txt extension)
         to_txt: If True, convert to plain text; if False, keep markdown format
+        api_key: Mistral API key (optional, defaults to MISTRAL_API_KEY environment variable)
 
     Returns:
         tuple: (output_path, page_count)
@@ -85,10 +89,12 @@ def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None, to_
     if output_path is None:
         output_path = pdf_path.with_suffix(".txt" if to_txt else ".md")
 
-    load_dotenv()
-    api_key = os.getenv("MISTRAL_API_KEY")
+    # Use provided api_key or load from environment
     if not api_key:
-        raise EnvironmentError("Set MISTRAL_API_KEY in your environment or .env file.")
+        load_dotenv()
+        api_key = os.getenv("MISTRAL_API_KEY")
+    if not api_key:
+        raise EnvironmentError("Set MISTRAL_API_KEY in your environment or .env file, or provide --api-key.")
 
     client = Mistral(api_key=api_key)
     file_bytes = pdf_path.read_bytes()
@@ -170,6 +176,10 @@ def parse_args() -> argparse.Namespace:
         default="mistral-ocr-latest",
         help="OCR model name (default: mistral-ocr-latest).",
     )
+    parser.add_argument(
+        "--api-key",
+        help="Mistral API key (overrides MISTRAL_API_KEY environment variable).",
+    )
     format_group = parser.add_mutually_exclusive_group()
     format_group.add_argument(
         "--txt",
@@ -235,7 +245,7 @@ def main() -> None:
                     output_path = output_path_original
 
                 print(f"Processing: {pdf_file.name}")
-                output_path, page_count = convert_pdf_to_txt(pdf_file, args.model, output_path, to_txt)
+                output_path, page_count = convert_pdf_to_txt(pdf_file, args.model, output_path, to_txt, getattr(args, 'api_key', None))
 
                 processed_count += 1
 
