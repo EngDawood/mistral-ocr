@@ -4,6 +4,7 @@ Advanced PDF to Text/Markdown converter using Mistral OCR.
 
 FEATURES:
 - Single file processing: Convert individual PDF files to plain text or markdown
+- URL processing: Download and process PDFs directly from URLs
 - Directory processing: Recursively process all PDFs in directories and subdirectories
 - Smart skip logic: Only skip PDFs with existing files of the target extension
 - User confirmation: Interactive confirmation for re-processing (only when target file exists)
@@ -16,6 +17,12 @@ USAGE EXAMPLES:
 
     # Process single file to markdown
     python pdf_to_txt_new.py document.pdf --md
+
+    # Download and process PDF from URL
+    python pdf_to_txt_new.py --url https://example.com/document.pdf
+
+    # Download PDF and convert to markdown
+    python pdf_to_txt_new.py --url https://example.com/document.pdf --md
 
     # Use custom API key
     python pdf_to_txt_new.py document.pdf --api-key your_api_key_here
@@ -52,10 +59,51 @@ import argparse
 import os
 import re
 import sys
+import tempfile
 from pathlib import Path
+from urllib.parse import urlparse
+from urllib.request import urlopen
 
 from dotenv import load_dotenv
 from mistralai import DocumentURLChunk, Mistral
+
+
+def download_pdf_from_url(url: str, output_dir: Path = None) -> Path:
+    """Download a PDF file from a URL to a temporary or specified directory.
+
+    Args:
+        url: URL of the PDF file
+        output_dir: Directory to save the PDF (optional, defaults to temp directory)
+
+    Returns:
+        Path: Path to the downloaded PDF file
+    """
+    # Parse URL to get filename
+    parsed_url = urlparse(url)
+    filename = os.path.basename(parsed_url.path)
+
+    # If no filename in URL, generate one
+    if not filename or not filename.lower().endswith('.pdf'):
+        filename = "downloaded_document.pdf"
+
+    # Determine output directory
+    if output_dir is None:
+        output_dir = Path(tempfile.gettempdir())
+    else:
+        output_dir = Path(output_dir)
+
+    output_path = output_dir / filename
+
+    # Download the file
+    print(f"Downloading PDF from: {url}")
+    with urlopen(url) as response:
+        pdf_data = response.read()
+
+    # Save to file
+    output_path.write_bytes(pdf_data)
+    print(f"Downloaded to: {output_path}")
+
+    return output_path
 
 
 def markdown_to_text(content: str) -> str:
@@ -170,7 +218,11 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Convert PDF(s) to text or markdown using Mistral OCR. Can process a single PDF file or all PDFs in a directory.",
     )
-    parser.add_argument("input", help="Path to PDF file or directory containing PDF files to convert.")
+    parser.add_argument("input", nargs='?', help="Path to PDF file or directory containing PDF files to convert.")
+    parser.add_argument(
+        "--url",
+        help="URL of PDF file to download and process.",
+    )
     parser.add_argument(
         "--model",
         default="mistral-ocr-latest",
@@ -197,23 +249,54 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     try:
-        input_path = Path(args.input)
+        # Validate input arguments
+        if not args.input and not args.url:
+            print("Error: Please provide either an input path or --url parameter.", file=sys.stderr)
+            sys.exit(1)
+
+        if args.input and args.url:
+            print("Error: Please provide either an input path or --url parameter, not both.", file=sys.stderr)
+            sys.exit(1)
 
         # Determine output extension based on --md flag (default is .txt)
         output_extension = ".md" if args.md else ".txt"
         to_txt = not args.md  # Convert to plain text unless --md is specified
 
-        # Check if it's a single file that might already be processed (only check target extension)
-        if input_path.is_file() and input_path.suffix.lower() == ".pdf":
-            target_file = input_path.with_suffix(output_extension)
-            if target_file.exists():
-                response = input(f"File '{target_file.name}' already exists. Re-process? (y/N): ").strip().lower()
-                if response not in ['y', 'yes']:
-                    print("Skipping processing.")
-                    return
+        # Handle URL input
+        if args.url:
+            try:
+                # Download PDF from URL to current directory
+                downloaded_pdf = download_pdf_from_url(args.url, Path.cwd())
+                input_path = downloaded_pdf
 
-        # Find all PDF files to process (only skip files with target extension)
-        pdf_files = find_pdf_files(input_path, output_extension)
+                # Process single downloaded file
+                target_file = input_path.with_suffix(output_extension)
+                if target_file.exists():
+                    response = input(f"File '{target_file.name}' already exists. Re-process? (y/N): ").strip().lower()
+                    if response not in ['y', 'yes']:
+                        print("Skipping processing.")
+                        return
+
+                pdf_files = [input_path]
+            except Exception as download_exc:
+                print(f"Error downloading PDF from URL: {download_exc}", file=sys.stderr)
+                sys.exit(1)
+        else:
+            # Handle local file/directory input
+            input_path = Path(args.input)
+
+            # Check if it's a single file that might already be processed (only check target extension)
+            if input_path.is_file() and input_path.suffix.lower() == ".pdf":
+                target_file = input_path.with_suffix(output_extension)
+                if target_file.exists():
+                    response = input(f"File '{target_file.name}' already exists. Re-process? (y/N): ").strip().lower()
+                    if response not in ['y', 'yes']:
+                        print("Skipping processing.")
+                        return
+
+            # Find all PDF files to process (only skip files with target extension)
+            pdf_files = find_pdf_files(input_path, output_extension)
+
         total_files = len(pdf_files)
 
         if total_files == 1:
