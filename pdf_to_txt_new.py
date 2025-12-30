@@ -12,6 +12,7 @@ FEATURES:
 - Format selection: --txt (default) for plain text, --md for markdown
 - Auto-cleanup: Downloaded PDFs are deleted after OCR unless --keep flag is used
 - Dependency checking: Automatically checks and offers to install missing packages
+- Page selection: Process specific pages using --pages (e.g., --pages 1,8,9,11-20)
 
 USAGE EXAMPLES:
     # Process single file to plain text (default)
@@ -38,6 +39,10 @@ USAGE EXAMPLES:
     # Process all PDFs in directory (recursive)
     python pdf_to_txt_new.py ./documents/
     python pdf_to_txt_new.py ./documents/ --md
+
+    # Process specific pages only
+    python pdf_to_txt_new.py document.pdf --pages 1,8,9,11-20
+    python pdf_to_txt_new.py document.pdf --pages 1-5,10 --md
 
 DIRECTORY PROCESSING:
 - Recursively finds all *.pdf files in subdirectories
@@ -176,6 +181,68 @@ def download_pdf_from_url(url: str, output_dir: Path = None) -> Path:
     return output_path
 
 
+def parse_page_spec(page_spec: str) -> set[int]:
+    """Parse page specification string into a set of page numbers.
+
+    Args:
+        page_spec: String like "1,8,9,11-20" or "1-5,10"
+
+    Returns:
+        set[int]: Set of page numbers (1-indexed)
+
+    Examples:
+        >>> parse_page_spec("1,8,9,11-20")
+        {1, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
+        >>> parse_page_spec("1-5,10")
+        {1, 2, 3, 4, 5, 10}
+    """
+    pages = set()
+
+    # Split by comma
+    parts = page_spec.split(',')
+
+    for part in parts:
+        part = part.strip()
+
+        # Check if it's a range (e.g., "11-20")
+        if '-' in part:
+            try:
+                # Check for invalid negative numbers
+                if part.startswith('-'):
+                    raise ValueError(f"Page numbers must be positive (got '{part}')")
+
+                # Split on '-'
+                range_parts = part.split('-')
+
+                if len(range_parts) != 2:
+                    raise ValueError(f"Invalid page range format: '{part}' (expected format: '11-20')")
+
+                start = int(range_parts[0].strip())
+                end = int(range_parts[1].strip())
+
+                if start < 1 or end < 1:
+                    raise ValueError(f"Page numbers must be positive (got {start}-{end})")
+                if start > end:
+                    raise ValueError(f"Invalid page range: {start}-{end} (start must be <= end)")
+
+                pages.update(range(start, end + 1))
+            except ValueError as e:
+                if "invalid literal" in str(e):
+                    raise ValueError(f"Invalid page range format: '{part}' (expected format: '11-20')")
+                raise
+        else:
+            # Single page number
+            try:
+                page_num = int(part)
+                if page_num < 1:
+                    raise ValueError(f"Page numbers must be positive (got {page_num})")
+                pages.add(page_num)
+            except ValueError:
+                raise ValueError(f"Invalid page number: '{part}' (expected a positive integer)")
+
+    return pages
+
+
 def markdown_to_text(content: str) -> str:
     """Strip lightweight markdown formatting so the output is plain text."""
     text = re.sub(r"!\[.*?\]\(.*?\)", "", content)  # drop images
@@ -185,7 +252,7 @@ def markdown_to_text(content: str) -> str:
     return text.strip()
 
 
-def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None, to_txt: bool = False, api_key: str = None) -> tuple[Path, int]:
+def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None, to_txt: bool = False, api_key: str = None, page_numbers: set[int] = None) -> tuple[Path, int]:
     """Upload the PDF, request OCR, and write the markdown or text output.
 
     Args:
@@ -194,6 +261,7 @@ def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None, to_
         output_path: Custom output path (optional, defaults to pdf_path with .md or .txt extension)
         to_txt: If True, convert to plain text; if False, keep markdown format
         api_key: Mistral API key (optional, defaults to MISTRAL_API_KEY environment variable)
+        page_numbers: Set of page numbers to process (1-indexed). If None, process all pages.
 
     Returns:
         tuple: (output_path, page_count)
@@ -227,8 +295,26 @@ def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None, to_
         include_image_base64=False,
     )
 
-    page_count = len(response.pages)
-    markdown_pages = [page.markdown for page in response.pages]
+    # Filter pages if page_numbers is specified
+    if page_numbers:
+        # Convert to list and filter by 1-indexed page numbers
+        filtered_pages = []
+        for idx, page in enumerate(response.pages, start=1):
+            if idx in page_numbers:
+                filtered_pages.append(page.markdown)
+
+        # Check if any requested pages are out of range
+        total_pages = len(response.pages)
+        invalid_pages = page_numbers - set(range(1, total_pages + 1))
+        if invalid_pages:
+            print(f"  Warning: Requested pages {sorted(invalid_pages)} are out of range (PDF has {total_pages} pages)")
+
+        markdown_pages = filtered_pages
+        page_count = len(filtered_pages)
+    else:
+        markdown_pages = [page.markdown for page in response.pages]
+        page_count = len(response.pages)
+
     markdown_content = "\n\n".join(markdown_pages)
 
     # Convert to plain text if requested
@@ -307,6 +393,10 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Keep downloaded PDF file after processing (default: delete after OCR).",
     )
+    parser.add_argument(
+        "--pages",
+        help="Specific pages to process (e.g., '1,8,9,11-20'). If not specified, all pages are processed.",
+    )
     format_group = parser.add_mutually_exclusive_group()
     format_group.add_argument(
         "--txt",
@@ -332,6 +422,16 @@ def main() -> None:
         if args.input and args.url:
             print("Error: Please provide either an input path or --url parameter, not both.", file=sys.stderr)
             sys.exit(1)
+
+        # Parse page numbers if specified
+        page_numbers = None
+        if args.pages:
+            try:
+                page_numbers = parse_page_spec(args.pages)
+                print(f"Processing pages: {sorted(page_numbers)}")
+            except ValueError as e:
+                print(f"Error: {e}", file=sys.stderr)
+                sys.exit(1)
 
         # Determine output extension based on --md flag (default is .txt)
         output_extension = ".md" if args.md else ".txt"
@@ -409,7 +509,14 @@ def main() -> None:
                     output_path = output_path_original
 
                 print(f"Processing: {pdf_file.name}")
-                output_path, page_count = convert_pdf_to_txt(pdf_file, args.model, output_path, to_txt, getattr(args, 'api_key', None))
+                output_path, page_count = convert_pdf_to_txt(
+                    pdf_file,
+                    args.model,
+                    output_path,
+                    to_txt,
+                    getattr(args, 'api_key', None),
+                    page_numbers
+                )
 
                 processed_count += 1
 
