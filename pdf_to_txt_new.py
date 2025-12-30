@@ -13,6 +13,7 @@ FEATURES:
 - Auto-cleanup: Downloaded PDFs are deleted after OCR unless --keep flag is used
 - Dependency checking: Automatically checks and offers to install missing packages
 - Page selection: Process specific pages using --pages (e.g., --pages 1,8,9,11-20)
+- Header/Footer control: Skip header/footer extraction using --header 0 or --footer 0
 
 USAGE EXAMPLES:
     # Process single file to plain text (default)
@@ -43,6 +44,11 @@ USAGE EXAMPLES:
     # Process specific pages only
     python pdf_to_txt_new.py document.pdf --pages 1,8,9,11-20
     python pdf_to_txt_new.py document.pdf --pages 1-5,10 --md
+
+    # Skip header/footer extraction
+    python pdf_to_txt_new.py document.pdf --header 0
+    python pdf_to_txt_new.py document.pdf --footer no
+    python pdf_to_txt_new.py document.pdf --header false --footer false
 
 DIRECTORY PROCESSING:
 - Recursively finds all *.pdf files in subdirectories
@@ -181,6 +187,34 @@ def download_pdf_from_url(url: str, output_dir: Path = None) -> Path:
     return output_path
 
 
+def parse_bool_arg(value: str) -> bool:
+    """Parse boolean argument from various string formats.
+
+    Args:
+        value: String value ('0', '1', 'false', 'true', 'no', 'yes')
+
+    Returns:
+        bool: Parsed boolean value
+
+    Examples:
+        >>> parse_bool_arg('1')
+        True
+        >>> parse_bool_arg('0')
+        False
+        >>> parse_bool_arg('false')
+        False
+        >>> parse_bool_arg('no')
+        False
+    """
+    value_lower = value.lower().strip()
+    if value_lower in ('0', 'false', 'no'):
+        return False
+    elif value_lower in ('1', 'true', 'yes'):
+        return True
+    else:
+        raise ValueError(f"Invalid boolean value: '{value}' (expected: 0/1, false/true, no/yes)")
+
+
 def parse_page_spec(page_spec: str) -> set[int]:
     """Parse page specification string into a set of page numbers.
 
@@ -252,7 +286,7 @@ def markdown_to_text(content: str) -> str:
     return text.strip()
 
 
-def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None, to_txt: bool = False, api_key: str = None, page_numbers: set[int] = None) -> tuple[Path, int]:
+def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None, to_txt: bool = False, api_key: str = None, page_numbers: set[int] = None, extract_header: bool = True, extract_footer: bool = True) -> tuple[Path, int]:
     """Upload the PDF, request OCR, and write the markdown or text output.
 
     Args:
@@ -262,6 +296,8 @@ def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None, to_
         to_txt: If True, convert to plain text; if False, keep markdown format
         api_key: Mistral API key (optional, defaults to MISTRAL_API_KEY environment variable)
         page_numbers: Set of page numbers to process (1-indexed). If None, process all pages.
+        extract_header: If True, extract header content from PDF (default: True)
+        extract_footer: If True, extract footer content from PDF (default: True)
 
     Returns:
         tuple: (output_path, page_count)
@@ -293,6 +329,8 @@ def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None, to_
         document=DocumentURLChunk(document_url=signed_url.url),
         model=model,
         include_image_base64=False,
+        extract_header=extract_header,
+        extract_footer=extract_footer,
     )
 
     # Filter pages if page_numbers is specified
@@ -397,6 +435,20 @@ def parse_args() -> argparse.Namespace:
         "--pages",
         help="Specific pages to process (e.g., '1,8,9,11-20'). If not specified, all pages are processed.",
     )
+    parser.add_argument(
+        "--header",
+        nargs='?',
+        const='1',
+        default='1',
+        help="Extract header content from PDF. Default: 1 (extract). Use 0/false/no to skip header extraction.",
+    )
+    parser.add_argument(
+        "--footer",
+        nargs='?',
+        const='1',
+        default='1',
+        help="Extract footer content from PDF. Default: 1 (extract). Use 0/false/no to skip footer extraction.",
+    )
     format_group = parser.add_mutually_exclusive_group()
     format_group.add_argument(
         "--txt",
@@ -432,6 +484,14 @@ def main() -> None:
             except ValueError as e:
                 print(f"Error: {e}", file=sys.stderr)
                 sys.exit(1)
+
+        # Parse header/footer extraction options
+        try:
+            extract_header = parse_bool_arg(args.header)
+            extract_footer = parse_bool_arg(args.footer)
+        except ValueError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
 
         # Determine output extension based on --md flag (default is .txt)
         output_extension = ".md" if args.md else ".txt"
@@ -515,7 +575,9 @@ def main() -> None:
                     output_path,
                     to_txt,
                     getattr(args, 'api_key', None),
-                    page_numbers
+                    page_numbers,
+                    extract_header,
+                    extract_footer
                 )
 
                 processed_count += 1
