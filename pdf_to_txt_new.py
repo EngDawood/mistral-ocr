@@ -325,13 +325,35 @@ def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None, to_
         purpose="ocr",
     )
     signed_url = client.files.get_signed_url(file_id=uploaded.id, expiry=1)
-    response = client.ocr.process(
-        document=DocumentURLChunk(document_url=signed_url.url),
-        model=model,
-        include_image_base64=False,
-        extract_header=extract_header,
-        extract_footer=extract_footer,
-    )
+
+    # Build OCR request parameters
+    ocr_params = {
+        "document": DocumentURLChunk(document_url=signed_url.url),
+        "model": model,
+        "include_image_base64": False,
+    }
+
+    # Add header/footer extraction if supported (optional parameters)
+    if not extract_header:
+        ocr_params["extract_header"] = False
+    if not extract_footer:
+        ocr_params["extract_footer"] = False
+
+    try:
+        response = client.ocr.process(**ocr_params)
+    except TypeError as e:
+        # If extract_header/extract_footer are not supported, retry without them
+        if "extract_header" in str(e) or "extract_footer" in str(e):
+            ocr_params = {
+                "document": DocumentURLChunk(document_url=signed_url.url),
+                "model": model,
+                "include_image_base64": False,
+            }
+            response = client.ocr.process(**ocr_params)
+            if not extract_header or not extract_footer:
+                print("  Note: Header/footer extraction control not supported by current API version")
+        else:
+            raise
 
     # Filter pages if page_numbers is specified
     if page_numbers:
