@@ -1,13 +1,11 @@
 # Mistral OCR - Advanced PDF Processing & Audio Transcription
 
-## 🌍 مقدمة باللغة العربية
-
-هذا المشروع يوفر سكريبتات Python متقدمة للتفاعل مع Mistral AI API لمعالجة OCR لملفات PDF، مع إمكانيات المعالجة الدفعية وتتبع التكاليف. يدعم النظام معالجة النصوص العربية والمستندات متعددة اللغات بكفاءة عالية، بالإضافة إلى تحويل الصوت إلى نص باستخدام نماذج Voxtral المتقدمة.
+> **📖 للقراءة باللغة العربية** | **For Arabic Documentation**: See [README_ar.md](README_ar.md)
 
 This project provides advanced Python scripts for OCR processing, PDF text extraction, audio transcription, and document processing using Mistral AI API. Features batch processing, cost tracking, multilingual support, and speech-to-text capabilities.
 
 ### 📝 Editing Arabic Markdown
-For editing Arabic markdown content, use the online Arabic markdown editor at https://app.dawin.io/ - "الآن محرّر دوّن بحلّة جديدة , وتجربة لم تعهدها من قبل , ميزات عديدة بانتظارك! دَوِّن، هو محرّر نصوص عربي لتنسيقات ماركداون (Markdown) صمّم لحلّ مشكلة عدم توفر أي محرر نصوص متقدم يدعم اللغة العربية والاتجاه (Right to left). طوّر بأياد عربية خالصة تكّن للغة العربية احتراما وإجلالًا."
+For editing Arabic markdown content, use the online Arabic markdown editor at https://app.dawin.io/ - an Arabic markdown editor designed to support right-to-left text direction and Arabic language features.
 
 
 ## 🚀 `pdf_to_txt_new.py` - Advanced PDF OCR Converter
