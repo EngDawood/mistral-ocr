@@ -17,6 +17,7 @@ For editing Arabic markdown content, use the online Arabic markdown editor at ht
 ### ✨ Key Features
 
 - **📄 Flexible Output Formats**: Default plain text (`.txt`) or markdown (`.md`) with `--md` flag
+- **🧹 Markdown Cleaning**: Use `--clean` flag to remove repetitive headers from academic papers (requires [markdowncleaner](https://github.com/josk0/markdowncleaner))
 - **🌐 URL Support**: Download and process PDFs directly from URLs with auto-cleanup
 - **🔄 Batch Processing**: Process single files or entire directories recursively
 - **🧠 Smart Skip Logic**: Only skips PDFs with existing files of the target extension
@@ -37,6 +38,9 @@ python pdf_to_txt_new.py document.pdf
 
 # Process to markdown
 python pdf_to_txt_new.py document.pdf --md
+
+# Process to clean markdown (removes repetitive headers)
+python pdf_to_txt_new.py document.pdf --md --clean
 
 # Explicit plain text
 python pdf_to_txt_new.py document.pdf --txt
@@ -152,6 +156,7 @@ Arguments:
 Options:
   --url URL            Download and process PDF from URL
   --md                 Convert to markdown instead of plain text
+  --clean              Clean markdown output (remove repetitive headers)
   --txt                Explicitly convert to plain text (default)
   --api-key KEY        Use custom Mistral API key
   --keep               Keep downloaded PDF file after processing
@@ -165,6 +170,7 @@ Options:
 |---------|-------------|
 | `pdf_to_txt_new.py file.pdf` | Process to plain text (default) |
 | `pdf_to_txt_new.py file.pdf --md` | Process to markdown |
+| `pdf_to_txt_new.py file.pdf --md --clean` | Process to clean markdown (remove headers) |
 | `pdf_to_txt_new.py --url https://example.com/doc.pdf` | Download, OCR, delete PDF |
 | `pdf_to_txt_new.py --url URL --keep` | Download, OCR, keep PDF |
 | `pdf_to_txt_new.py ./docs/` | Process all PDFs in directory |
@@ -256,6 +262,7 @@ your_directory/
 - Python 3.8+
 - Mistral AI API key (get free at [console.mistral.ai](https://console.mistral.ai/api-keys))
 - Required packages: `mistralai`, `python-dotenv` (auto-checked by `pdf_to_txt_new.py`)
+- Optional: `markdowncleaner` for cleaning academic papers (see [github.com/josk0/markdowncleaner](https://github.com/josk0/markdowncleaner))
 
 ## 🔗 Mistral OCR API Information
 
