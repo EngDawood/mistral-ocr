@@ -14,6 +14,7 @@ FEATURES:
 - Dependency checking: Automatically checks and offers to install missing packages
 - Page selection: Process specific pages using --pages (e.g., --pages 1,8,9,11-20)
 - Header/Footer control: Skip header/footer extraction using --header 0 or --footer 0
+- Markdown cleaning: Use --clean to remove repetitive headers while preserving page numbers, journal titles, and footnotes
 
 USAGE EXAMPLES:
     # Process single file to plain text (default)
@@ -50,6 +51,9 @@ USAGE EXAMPLES:
     python pdf_to_txt_new.py document.pdf --footer no
     python pdf_to_txt_new.py document.pdf --header false --footer false
 
+    # Clean markdown output (removes repetitive headers)
+    python pdf_to_txt_new.py document.pdf --md --clean
+
 DIRECTORY PROCESSING:
 - Recursively finds all *.pdf files in subdirectories
 - Skips files that already have the target extension (.txt or .md)
@@ -85,6 +89,12 @@ from urllib.request import urlopen
 from dotenv import load_dotenv
 from mistralai import DocumentURLChunk, Mistral
 
+try:
+    from markdowncleaner import MarkdownCleaner
+    MARKDOWNCLEANER_AVAILABLE = True
+except ImportError:
+    MARKDOWNCLEANER_AVAILABLE = False
+
 
 def check_and_install_dependencies():
     """Check if required packages are installed and offer to install them if missing."""
@@ -101,6 +111,13 @@ def check_and_install_dependencies():
         import mistralai
     except ImportError:
         missing_packages.append('mistralai')
+
+    # Check for markdowncleaner (optional)
+    try:
+        import markdowncleaner
+    except ImportError:
+        # markdowncleaner is optional, don't add to missing packages
+        pass
 
     if missing_packages:
         print("\n" + "="*70, file=sys.stderr)
@@ -286,7 +303,47 @@ def markdown_to_text(content: str) -> str:
     return text.strip()
 
 
-def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None, to_txt: bool = False, api_key: str = None, page_numbers: set[int] = None, extract_header: bool = True, extract_footer: bool = True) -> tuple[Path, int]:
+def clean_markdown_content(content: str) -> str:
+    """Clean markdown content using markdowncleaner with YAML configuration for Arabic/English academic papers.
+    
+    Args:
+        content: Markdown content to clean
+    
+    Returns:
+        str: Cleaned markdown content
+    """
+    if not MARKDOWNCLEANER_AVAILABLE:
+        print("  Warning: markdowncleaner not available, skipping cleaning")
+        return content
+    
+    try:
+        from markdowncleaner.config.loader import CleaningPatterns
+        
+        # Look for YAML config file next to the script
+        config_path = Path(__file__).parent / "markdowncleaner_config.yaml"
+        
+        if config_path.exists():
+            print(f"  Using config: {config_path.name}")
+            # Load custom patterns from YAML file
+            custom_patterns = CleaningPatterns.from_yaml(config_path)
+            cleaner = MarkdownCleaner(patterns=custom_patterns)
+        else:
+            print("  Using default markdowncleaner settings (config file not found)")
+            # Fallback to default settings
+            cleaner = MarkdownCleaner()
+        
+        # Clean the content directly as a string
+        cleaned_content = cleaner.clean_markdown_string(content)
+        
+        return cleaned_content
+        
+    except Exception as e:
+        print(f"  Warning: Error during markdown cleaning: {e}")
+        print("  Falling back to original content")
+        return content
+
+
+def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None, to_txt: bool = False, api_key: str = None, page_numbers: set[int] = None, extract_header: bool = True, extract_footer: bool = True, clean_markdown: bool = False) -> tuple[Path, int]:
     """Upload the PDF, request OCR, and write the markdown or text output.
 
     Args:
@@ -298,6 +355,7 @@ def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None, to_
         page_numbers: Set of page numbers to process (1-indexed). If None, process all pages.
         extract_header: If True, extract header content from PDF (default: True)
         extract_footer: If True, extract footer content from PDF (default: True)
+        clean_markdown: If True, clean markdown content to remove repetitive headers (default: False)
 
     Returns:
         tuple: (output_path, page_count)
@@ -376,6 +434,11 @@ def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None, to_
         page_count = len(response.pages)
 
     markdown_content = "\n\n".join(markdown_pages)
+
+    # Clean markdown content if requested (before converting to text)
+    if clean_markdown and not to_txt:
+        print("  Cleaning markdown content...")
+        markdown_content = clean_markdown_content(markdown_content)
 
     # Convert to plain text if requested
     if to_txt:
@@ -470,6 +533,11 @@ def parse_args() -> argparse.Namespace:
         const='1',
         default='1',
         help="Extract footer content from PDF. Default: 1 (extract). Use 0/false/no to skip footer extraction.",
+    )
+    parser.add_argument(
+        "--clean",
+        action="store_true",
+        help="Clean markdown output to remove repetitive headers while preserving page numbers, journal titles, and footnotes. Only works with --md output.",
     )
     format_group = parser.add_mutually_exclusive_group()
     format_group.add_argument(
@@ -591,6 +659,12 @@ def main() -> None:
                     output_path = output_path_original
 
                 print(f"Processing: {pdf_file.name}")
+                # Check if cleaning is requested with text output (warn user)
+                clean_markdown = args.clean
+                if clean_markdown and to_txt:
+                    print("  Warning: --clean flag only works with markdown output (--md). Ignoring --clean.")
+                    clean_markdown = False
+                    
                 output_path, page_count = convert_pdf_to_txt(
                     pdf_file,
                     args.model,
@@ -599,7 +673,8 @@ def main() -> None:
                     getattr(args, 'api_key', None),
                     page_numbers,
                     extract_header,
-                    extract_footer
+                    extract_footer,
+                    clean_markdown
                 )
 
                 processed_count += 1
