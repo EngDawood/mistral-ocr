@@ -1,0 +1,70 @@
+# markdowncleaner configuration for Arabic/English academic papers
+# This configuration preserves important elements while removing repetitive content
+
+# Cleaner options - controls what cleaning operations are performed
+options:
+  # Line handling
+  remove_short_lines: true
+  min_line_length: 30  # Shorter threshold to preserve Arabic text and page numbers
+  
+  # Duplicate content handling  
+  remove_duplicate_headlines: true
+  remove_duplicate_headlines_threshold: 2  # Remove if appears 2+ times
+  
+  # Text formatting
+  contract_empty_lines: true
+  crimp_linebreaks: true  # Fix PDF conversion line break errors
+  fix_encoding_mojibake: true  # Important for Arabic text
+  normalize_quotation_symbols: true
+  
+  # Content removal
+  remove_footnotes_in_text: false  # Preserve footnotes as requested
+  remove_sections: true  # Remove common sections like "References"
+  remove_references_heuristically: false  # Don't auto-remove references
+  remove_whole_lines: true
+  replace_within_lines: true
+  remove_within_lines: true
+
+# Sections to remove entirely (case-insensitive matching)
+sections_to_remove:
+  - "References"
+  - "Bibliography" 
+  - "Acknowledgments"
+  - "Acknowledgements"
+  - "المراجع"
+  - "قائمة المراجع"
+  - "شكر وتقدير"
+
+# Patterns to remove from lines (regex patterns)
+bad_line_patterns:
+  # DOI patterns (but preserve them per user request - commented out)
+  # - "DOI:\\s*.*"
+  # - "doi:\\s*.*" 
+  
+  # Copyright notices
+  - "©\\s*\\d{4}"
+  - "Copyright\\s*\\d{4}"
+  - "All rights reserved"
+  
+  # Email patterns (remove repetitive contact info)
+  - "\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Z|a-z]{2,}\\b"
+
+# Patterns to remove within lines (inline patterns)
+bad_inline_patterns:
+  # Remove repetitive citation markers but preserve footnotes
+  - "\\[\\d+,\\s*\\d+\\]"  # Multiple citations like [1, 2]
+  - "\\(\\d+\\)"  # Citations in parentheses
+  
+# Text replacements for common PDF conversion issues
+replacements:
+  # Fix common Arabic text issues
+  "ﻻ": "لا"
+  "ﻷ": "لأ" 
+  "ﻹ": "لإ"
+  "ﻵ": "لآ"
+  
+  # Fix quotation marks
+  """: "\""
+  """: "\""
+  "'": "'"
+  "'": "'"
