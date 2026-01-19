@@ -19,27 +19,37 @@ options:
   
   # Content removal
   remove_footnotes_in_text: false  # Preserve footnotes as requested
-  remove_sections: true  # Remove common sections like "References"
+  remove_sections: false  # Keep all sections including References
   remove_references_heuristically: false  # Don't auto-remove references
   remove_whole_lines: true
   replace_within_lines: true
   remove_within_lines: true
 
 # Sections to remove entirely (case-insensitive matching)
+# Note: Keeping References sections as requested by user
 sections_to_remove:
-  - "References"
-  - "Bibliography" 
   - "Acknowledgments"
-  - "Acknowledgements"
-  - "المراجع"
-  - "قائمة المراجع"
+  - "Acknowledgements" 
   - "شكر وتقدير"
 
 # Patterns to remove from lines (regex patterns)
 bad_line_patterns:
-  # DOI patterns (but preserve them per user request - commented out)
+  # DOI patterns (preserve them per user request - commented out)
   # - "DOI:\\s*.*"
-  # - "doi:\\s*.*" 
+  # - "doi:\\s*.*"
+  
+  # Page number patterns (preserve them per user request - commented out)
+  # - "^\\s*\\d+\\s*$"  # Standalone page numbers
+  # - "^\\s*Page\\s*\\d+\\s*$"  # "Page N" format
+  # - "^\\s*صفحة\\s*\\d+\\s*$"  # Arabic page numbers
+  
+  # Aggressive removal of repetitive content in Arabic academic papers
+  - "مجلة.*للدراسات"  # Journal names containing "للدراسات"
+  - "العدد.*"  # Issue numbers
+  - "المجلد.*"  # Volume numbers
+  - "كلية.*"  # College names
+  - "جامعة.*"  # University names
+  - "قسم.*"  # Department names
   
   # Copyright notices
   - "©\\s*\\d{4}"
@@ -51,9 +61,9 @@ bad_line_patterns:
 
 # Patterns to remove within lines (inline patterns)
 bad_inline_patterns:
-  # Remove repetitive citation markers but preserve footnotes
-  - "\\[\\d+,\\s*\\d+\\]"  # Multiple citations like [1, 2]
-  - "\\(\\d+\\)"  # Citations in parentheses
+  # Note: Preserving references and citations as requested by user
+  # - "\\[\\d+,\\s*\\d+\\]"  # Multiple citations like [1, 2] - COMMENTED OUT
+  # - "\\(\\d+\\)"  # Citations in parentheses - COMMENTED OUT
   
 # Text replacements for common PDF conversion issues
 replacements:
@@ -64,7 +74,7 @@ replacements:
   "ﻵ": "لآ"
   
   # Fix quotation marks
-  """: "\""
-  """: "\""
-  "'": "'"
-  "'": "'"
+  "\u201c": "\""  # Left double quotation mark
+  "\u201d": "\""  # Right double quotation mark
+  "\u2018": "'"   # Left single quotation mark
+  "\u2019": "'"   # Right single quotation mark

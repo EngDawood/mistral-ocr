@@ -21,11 +21,8 @@ from __future__ import annotations
 import json
 import os
 import re
-import tempfile
 from pathlib import Path
 from typing import Literal, Optional
-from urllib.parse import urlparse
-from urllib.request import urlopen
 
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
@@ -40,7 +37,6 @@ mcp = FastMCP("mistral_ocr_mcp")
 
 # Constants
 DEFAULT_MODEL = "mistral-ocr-latest"
-COST_PER_PAGE = 0.001  # USD
 
 # Check for markdowncleaner availability
 try:
@@ -65,10 +61,6 @@ class ProcessPdfInput(BaseModel):
     output_format: Literal["markdown", "text"] = Field(
         default="text",
         description="Output format: 'markdown' preserves formatting, 'text' is plain text"
-    )
-    pages: Optional[str] = Field(
-        default=None,
-        description="Specific pages to process (e.g., '1,8,9,11-20'). If not specified, all pages are processed"
     )
     extract_header: bool = Field(
         default=True,
@@ -111,10 +103,6 @@ class ProcessUrlInput(BaseModel):
         default="text",
         description="Output format: 'markdown' or 'text'"
     )
-    pages: Optional[str] = Field(
-        default=None,
-        description="Specific pages to process (e.g., '1,8,9,11-20')"
-    )
     extract_header: bool = Field(
         default=True,
         description="Extract header content from PDF pages"
@@ -126,10 +114,6 @@ class ProcessUrlInput(BaseModel):
     clean_output: bool = Field(
         default=False,
         description="Clean repetitive content from markdown output"
-    )
-    keep_pdf: bool = Field(
-        default=False,
-        description="Keep the downloaded PDF file after processing"
     )
     output_dir: Optional[str] = Field(
         default=None,
