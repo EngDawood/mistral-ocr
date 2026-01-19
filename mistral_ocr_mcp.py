@@ -153,42 +153,6 @@ class CleanMarkdownInput(BaseModel):
 # Core Utility Functions (extracted from pdf_to_txt_new.py)
 # =============================================================================
 
-def parse_page_spec(page_spec: str) -> set[int]:
-    """Parse page specification string into a set of page numbers.
-
-    Args:
-        page_spec: String like "1,8,9,11-20" or "1-5,10"
-
-    Returns:
-        set[int]: Set of page numbers (1-indexed)
-    """
-    pages = set()
-    parts = page_spec.split(',')
-
-    for part in parts:
-        part = part.strip()
-        if '-' in part:
-            if part.startswith('-'):
-                raise ValueError(f"Page numbers must be positive (got '{part}')")
-            range_parts = part.split('-')
-            if len(range_parts) != 2:
-                raise ValueError(f"Invalid page range format: '{part}' (expected format: '11-20')")
-            start = int(range_parts[0].strip())
-            end = int(range_parts[1].strip())
-            if start < 1 or end < 1:
-                raise ValueError(f"Page numbers must be positive (got {start}-{end})")
-            if start > end:
-                raise ValueError(f"Invalid page range: {start}-{end} (start must be <= end)")
-            pages.update(range(start, end + 1))
-        else:
-            page_num = int(part)
-            if page_num < 1:
-                raise ValueError(f"Page numbers must be positive (got {page_num})")
-            pages.add(page_num)
-
-    return pages
-
-
 def markdown_to_text(content: str) -> str:
     """Strip lightweight markdown formatting so the output is plain text."""
     text = re.sub(r"!\[.*?\]\(.*?\)", "", content)  # drop images
