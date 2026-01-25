@@ -21,8 +21,11 @@ from __future__ import annotations
 import json
 import os
 import re
+import tempfile
 from pathlib import Path
 from typing import Literal, Optional
+from urllib.parse import urlparse
+from urllib.request import urlopen
 
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
@@ -61,6 +64,10 @@ class ProcessPdfInput(BaseModel):
     output_format: Literal["markdown", "text"] = Field(
         default="text",
         description="Output format: 'markdown' preserves formatting, 'text' is plain text"
+    )
+    pages: Optional[str] = Field(
+        default=None,
+        description="Specific pages to process (e.g., '1,8,9,11-20'). If not specified, all pages are processed"
     )
     extract_header: bool = Field(
         default=True,
@@ -103,6 +110,10 @@ class ProcessUrlInput(BaseModel):
         default="text",
         description="Output format: 'markdown' or 'text'"
     )
+    pages: Optional[str] = Field(
+        default=None,
+        description="Specific pages to process (e.g., '1,8,9,11-20')"
+    )
     extract_header: bool = Field(
         default=True,
         description="Extract header content from PDF pages"
@@ -114,6 +125,10 @@ class ProcessUrlInput(BaseModel):
     clean_output: bool = Field(
         default=False,
         description="Clean repetitive content from markdown output"
+    )
+    keep_pdf: bool = Field(
+        default=False,
+        description="Keep the downloaded PDF file after processing"
     )
     output_dir: Optional[str] = Field(
         default=None,
@@ -152,6 +167,42 @@ class CleanMarkdownInput(BaseModel):
 # =============================================================================
 # Core Utility Functions (extracted from pdf_to_txt_new.py)
 # =============================================================================
+
+def parse_page_spec(page_spec: str) -> set[int]:
+    """Parse page specification string into a set of page numbers.
+
+    Args:
+        page_spec: String like "1,8,9,11-20" or "1-5,10"
+
+    Returns:
+        set[int]: Set of page numbers (1-indexed)
+    """
+    pages = set()
+    parts = page_spec.split(',')
+
+    for part in parts:
+        part = part.strip()
+        if '-' in part:
+            if part.startswith('-'):
+                raise ValueError(f"Page numbers must be positive (got '{part}')")
+            range_parts = part.split('-')
+            if len(range_parts) != 2:
+                raise ValueError(f"Invalid page range format: '{part}' (expected format: '11-20')")
+            start = int(range_parts[0].strip())
+            end = int(range_parts[1].strip())
+            if start < 1 or end < 1:
+                raise ValueError(f"Page numbers must be positive (got {start}-{end})")
+            if start > end:
+                raise ValueError(f"Invalid page range: {start}-{end} (start must be <= end)")
+            pages.update(range(start, end + 1))
+        else:
+            page_num = int(part)
+            if page_num < 1:
+                raise ValueError(f"Page numbers must be positive (got {page_num})")
+            pages.add(page_num)
+
+    return pages
+
 
 def markdown_to_text(content: str) -> str:
     """Strip lightweight markdown formatting so the output is plain text."""
@@ -407,16 +458,12 @@ async def mistral_ocr_process_pdf(params: ProcessPdfInput) -> str:
             output_path.write_text(final_content, encoding="utf-8")
             output_file = str(output_path)
 
-        # Calculate cost
-        cost_usd = len(pages_processed) * COST_PER_PAGE
-
         return json.dumps({
             "success": True,
             "content": final_content if params.return_content else None,
             "page_count": total_pages,
             "pages_processed": pages_processed,
             "output_file": output_file,
-            "cost_usd": cost_usd,
             "format": params.output_format,
             "cleaned": cleaned,
             "config_used": config_used,
