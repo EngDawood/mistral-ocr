@@ -392,7 +392,7 @@ async def mistral_ocr_process_pdf(params: ProcessPdfInput) -> str:
 
     Returns:
         JSON string with: success, content, page_count, pages_processed,
-        output_file, cost_usd, format, cleaned, warnings
+        output_file, format, cleaned, warnings
 
     Examples:
         - Process entire PDF: file_path="/path/to/doc.pdf"
@@ -505,7 +505,7 @@ async def mistral_ocr_process_url(params: ProcessUrlInput) -> str:
 
     Returns:
         JSON string with: success, content, page_count, pages_processed,
-        output_file, pdf_file (if kept), cost_usd, format, cleaned, warnings
+        output_file, pdf_file (if kept), format, cleaned, warnings
 
     Examples:
         - Process URL: url="https://example.com/doc.pdf"
@@ -567,9 +567,6 @@ async def mistral_ocr_process_url(params: ProcessUrlInput) -> str:
         output_path = downloaded_pdf.with_suffix(ext)
         output_path.write_text(final_content, encoding="utf-8")
 
-        # Calculate cost
-        cost_usd = len(pages_processed) * COST_PER_PAGE
-
         # Handle PDF cleanup
         pdf_file = None
         if params.keep_pdf:
@@ -584,7 +581,6 @@ async def mistral_ocr_process_url(params: ProcessUrlInput) -> str:
             "pages_processed": pages_processed,
             "output_file": str(output_path),
             "pdf_file": pdf_file,
-            "cost_usd": cost_usd,
             "format": params.output_format,
             "cleaned": cleaned,
             "config_used": config_used,
