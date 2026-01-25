@@ -1,0 +1,18 @@
+[project]
+name = "mistral-ocr"
+version = "0.1.0"
+description = "CLI tools for PDF OCR and audio transcription using Mistral AI API"
+readme = "README.md"
+authors = [
+    { name = "EngDawood", email = "davidhormos@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "markdowncleaner>=0.3.1",
+    "mistralai>=1.10.0",
+    "python-dotenv>=1.2.1",
+]
+
+[project.scripts]
+pdf-to-txt = "pdf_to_txt_new:main"
+transcribe-audio = "transcribe_audio:main"

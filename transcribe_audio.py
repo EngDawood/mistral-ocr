@@ -30,7 +30,8 @@ def transcribe_audio(api_key, file_path, model="voxtral-mini-latest"):
         print(f"An error occurred: {e}")
         sys.exit(1)
 
-if __name__ == "__main__":
+def main():
+    """CLI entry point for audio transcription."""
     load_dotenv()
     api_key = os.environ.get("MISTRAL_API_KEY")
     if not api_key:
@@ -49,3 +50,7 @@ if __name__ == "__main__":
         f.write(transcribed_text)
 
     print(f"Transcription saved to: {output_file_path}")
+
+
+if __name__ == "__main__":
+    main()
