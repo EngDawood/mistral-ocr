@@ -71,3 +71,8 @@ CLAUDE.local.md
 CLAUDE.*
 CLAUDE.md
 CLAUDE.md
+.claude/
+.mcp.json
+
+# Test output files
+downloaded_document*
