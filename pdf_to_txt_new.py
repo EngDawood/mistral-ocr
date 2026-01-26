@@ -4,17 +4,20 @@ Advanced PDF to Text/Markdown converter using Mistral OCR.
 
 FEATURES:
 - Single file processing: Convert individual PDF files to plain text or markdown
-- URL processing: Download and process PDFs directly from URLs (auto-cleanup after OCR)
+- URL processing: Process PDFs directly from URLs without downloading (use --keep to save PDF locally)
 - Directory processing: Recursively process all PDFs in directories and subdirectories
 - Smart skip logic: Only skip PDFs with existing files of the target extension
 - User confirmation: Interactive confirmation for re-processing (only when target file exists)
 - Unique naming: Append _1, _2, etc. to avoid overwriting existing files
 - Format selection: --txt (default) for plain text, --md for markdown
-- Auto-cleanup: Downloaded PDFs are deleted after OCR unless --keep flag is used
+- Efficient URL processing: PDFs from URLs are processed directly without downloading (use --keep to save locally)
 - Dependency checking: Automatically checks and offers to install missing packages
 - Page selection: Process specific pages using --pages (e.g., --pages 1,8,9,11-20)
 - Header/Footer control: Skip header/footer extraction using --header 0 or --footer 0
 - Markdown cleaning: Use --clean to remove repetitive headers while preserving page numbers, journal titles, and footnotes
+- Table extraction: Extract tables in separate markdown or HTML files using --table-format
+- Image extraction: Embed images as base64 data URIs in markdown using --extract-images
+- Hyperlink extraction: Extract detected hyperlinks to JSON file using --extract-links
 
 USAGE EXAMPLES:
     # Process single file to plain text (default)
@@ -23,13 +26,13 @@ USAGE EXAMPLES:
     # Process single file to markdown
     python pdf_to_txt_new.py document.pdf --md
 
-    # Download and process PDF from URL (PDF deleted after OCR)
+    # Process PDF from URL (no download, processes directly)
     python pdf_to_txt_new.py --url https://example.com/document.pdf
 
-    # Download PDF and convert to markdown
+    # Process URL and convert to markdown
     python pdf_to_txt_new.py --url https://example.com/document.pdf --md
 
-    # Download and keep the PDF file after OCR
+    # Process URL and save the PDF file locally
     python pdf_to_txt_new.py --url https://example.com/document.pdf --keep
 
     # Use custom API key
@@ -54,6 +57,12 @@ USAGE EXAMPLES:
     # Clean markdown output (removes repetitive headers)
     python pdf_to_txt_new.py document.pdf --md --clean
 
+    # Extract tables to separate markdown files
+    python pdf_to_txt_new.py document.pdf --md --table-format markdown
+
+    # Embed images and extract hyperlinks
+    python pdf_to_txt_new.py document.pdf --md --extract-images --extract-links
+
 DIRECTORY PROCESSING:
 - Recursively finds all *.pdf files in subdirectories
 - Skips files that already have the target extension (.txt or .md)
@@ -77,6 +86,8 @@ OUTPUT:
 from __future__ import annotations
 
 import argparse
+import base64
+import json
 import os
 import re
 import subprocess
@@ -343,7 +354,245 @@ def clean_markdown_content(content: str) -> str:
         return content
 
 
-def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None, to_txt: bool = False, api_key: str = None, page_numbers: set[int] = None, extract_header: bool = True, extract_footer: bool = True, clean_markdown: bool = False) -> tuple[Path, int]:
+def embed_images_as_base64(response, markdown_content: str) -> str:
+    """Embed extracted images as base64 data URIs in markdown.
+
+    Args:
+        response: OCR response object containing pages with images
+        markdown_content: The markdown content to insert images into
+
+    Returns:
+        str: Markdown content with embedded base64 images
+    """
+    images_to_embed = []
+
+    for page in response.pages:
+        if hasattr(page, 'images') and page.images:
+            for img in page.images:
+                try:
+                    # Get base64 data
+                    img_data_str = img.image_base64
+
+                    # If it already has the data URI format, use it directly
+                    if img_data_str.startswith('data:image'):
+                        data_uri = img_data_str
+                    else:
+                        # Otherwise, create data URI (assume JPEG)
+                        data_uri = f"data:image/jpeg;base64,{img_data_str}"
+
+                    images_to_embed.append(data_uri)
+
+                except Exception as e:
+                    print(f"  Warning: Failed to embed image: {e}")
+                    continue
+
+    # Append images at the end of the document
+    if images_to_embed:
+        markdown_content += "\n\n---\n\n## Extracted Images\n\n"
+        for idx, data_uri in enumerate(images_to_embed):
+            markdown_content += f"\n![Image {idx + 1}]({data_uri})\n"
+
+    return markdown_content
+
+
+def extract_hyperlinks(response) -> list[dict]:
+    """Extract hyperlinks from OCR response.
+
+    Args:
+        response: OCR response object containing pages with hyperlinks
+
+    Returns:
+        list[dict]: List of hyperlinks with text, url, and page information
+    """
+    links = []
+
+    for page_idx, page in enumerate(response.pages, start=1):
+        if hasattr(page, 'hyperlinks') and page.hyperlinks:
+            for link in page.hyperlinks:
+                links.append({
+                    "text": link.text if hasattr(link, 'text') else "",
+                    "url": link.url if hasattr(link, 'url') else "",
+                    "page": page_idx
+                })
+
+    return links
+
+
+def save_tables(response, output_dir: Path, base_name: str, table_format: str) -> int:
+    """Save tables from OCR response to separate files.
+
+    Args:
+        response: OCR response object containing pages with tables
+        output_dir: Directory where the PDF is located
+        base_name: Base name for the tables directory
+        table_format: Format for table files ('markdown' or 'html')
+
+    Returns:
+        int: Number of tables saved
+    """
+    if table_format == "inline":
+        return 0
+
+    tables_dir = output_dir / f"{base_name}_tables"
+    tables_dir.mkdir(exist_ok=True)
+
+    table_count = 0
+    ext = '.md' if table_format == 'markdown' else '.html'
+
+    for page in response.pages:
+        if hasattr(page, 'tables') and page.tables:
+            for table in page.tables:
+                try:
+                    table_filename = f"tbl-{table_count}{ext}"
+                    table_path = tables_dir / table_filename
+
+                    # Write table content
+                    content = table.content if hasattr(table, 'content') else str(table)
+                    table_path.write_text(content, encoding='utf-8')
+                    table_count += 1
+
+                except Exception as e:
+                    print(f"  Warning: Failed to save table {table_count}: {e}")
+                    continue
+
+    return table_count
+
+
+def process_pdf_from_url(url: str, model: str, output_path: Path, to_txt: bool = False, api_key: str = None, page_numbers: set[int] = None, extract_header: bool = True, extract_footer: bool = True, clean_markdown: bool = False, table_format: str = "inline", extract_images_flag: bool = False, extract_links_flag: bool = False) -> tuple[Path, int]:
+    """Process PDF directly from URL using Mistral OCR without downloading.
+
+    Args:
+        url: URL of the PDF file
+        model: OCR model to use
+        output_path: Path for output file
+        to_txt: If True, convert to plain text; if False, keep markdown format
+        api_key: Mistral API key (optional, defaults to MISTRAL_API_KEY environment variable)
+        page_numbers: Set of page numbers to process (1-indexed). If None, process all pages.
+        extract_header: If True, extract header content from PDF (default: True)
+        extract_footer: If True, extract footer content from PDF (default: True)
+        clean_markdown: If True, clean markdown content to remove repetitive headers (default: False)
+        table_format: Format for table extraction ('inline', 'markdown', or 'html')
+        extract_images_flag: If True, extract images to separate files
+        extract_links_flag: If True, extract hyperlinks to JSON file
+
+    Returns:
+        tuple: (output_path, page_count)
+    """
+    # Use provided api_key or load from environment
+    if not api_key:
+        load_dotenv()
+        api_key = os.getenv("MISTRAL_API_KEY")
+    if not api_key:
+        raise EnvironmentError("Set MISTRAL_API_KEY in your environment or .env file, or provide --api-key.")
+
+    client = Mistral(api_key=api_key)
+
+    # Build OCR request parameters with direct URL
+    ocr_params = {
+        "document": DocumentURLChunk(document_url=url),
+        "model": model,
+        "include_image_base64": extract_images_flag,
+    }
+
+    # Add table format if not inline
+    if table_format != "inline":
+        ocr_params["table_format"] = table_format
+
+    # Add header/footer extraction if supported (optional parameters)
+    if not extract_header:
+        ocr_params["extract_header"] = False
+    if not extract_footer:
+        ocr_params["extract_footer"] = False
+
+    try:
+        response = client.ocr.process(**ocr_params)
+    except TypeError as e:
+        # Handle unsupported parameters gracefully
+        error_msg = str(e)
+        unsupported_params = []
+
+        # Check which parameters are not supported
+        if "table_format" in error_msg:
+            unsupported_params.append("table_format")
+        if "extract_header" in error_msg or "extract_footer" in error_msg:
+            unsupported_params.append("header/footer extraction")
+
+        # Rebuild with minimal parameters
+        ocr_params = {
+            "document": DocumentURLChunk(document_url=url),
+            "model": model,
+            "include_image_base64": extract_images_flag,
+        }
+
+        response = client.ocr.process(**ocr_params)
+
+        if unsupported_params:
+            print(f"  Note: {', '.join(unsupported_params)} not supported by current API version")
+
+    # Filter pages if page_numbers is specified
+    if page_numbers:
+        filtered_pages = []
+        for idx, page in enumerate(response.pages, start=1):
+            if idx in page_numbers:
+                filtered_pages.append(page.markdown)
+
+        total_pages = len(response.pages)
+        invalid_pages = page_numbers - set(range(1, total_pages + 1))
+        if invalid_pages:
+            print(f"  Warning: Requested pages {sorted(invalid_pages)} are out of range (PDF has {total_pages} pages)")
+
+        markdown_pages = filtered_pages
+        page_count = len(filtered_pages)
+    else:
+        markdown_pages = [page.markdown for page in response.pages]
+        page_count = len(response.pages)
+
+    markdown_content = "\n\n".join(markdown_pages)
+
+    # Extract and embed images if requested
+    if extract_images_flag:
+        print("  Embedding images as base64...")
+        original_length = len(markdown_content)
+        markdown_content = embed_images_as_base64(response, markdown_content)
+        # Count embedded images by checking how many were added
+        if len(markdown_content) > original_length:
+            # Count image tags added
+            image_count = markdown_content.count('![Image ')
+            print(f"  Embedded {image_count} images in markdown")
+
+    # Extract and save hyperlinks if requested
+    if extract_links_flag:
+        print("  Extracting hyperlinks...")
+        links = extract_hyperlinks(response)
+        if links:
+            links_file = output_path.with_suffix('.json').with_stem(f"{output_path.stem}_links")
+            links_file.write_text(json.dumps(links, indent=2, ensure_ascii=False), encoding='utf-8')
+            print(f"  Saved {len(links)} hyperlinks to {links_file.name}")
+
+    # Save tables if requested
+    if table_format != "inline":
+        print(f"  Extracting tables as {table_format}...")
+        base_name = output_path.stem
+        table_count = save_tables(response, output_path.parent, base_name, table_format)
+        if table_count > 0:
+            print(f"  Saved {table_count} tables to {base_name}_tables/")
+
+    # Clean markdown content if requested (before converting to text)
+    if clean_markdown and not to_txt:
+        print("  Cleaning markdown content...")
+        markdown_content = clean_markdown_content(markdown_content)
+
+    # Convert to plain text if requested
+    if to_txt:
+        final_content = markdown_to_text(markdown_content)
+    else:
+        final_content = markdown_content
+
+    output_path.write_text(final_content, encoding="utf-8")
+    return output_path, page_count
+
+
+def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None, to_txt: bool = False, api_key: str = None, page_numbers: set[int] = None, extract_header: bool = True, extract_footer: bool = True, clean_markdown: bool = False, table_format: str = "inline", extract_images_flag: bool = False, extract_links_flag: bool = False) -> tuple[Path, int]:
     """Upload the PDF, request OCR, and write the markdown or text output.
 
     Args:
@@ -356,6 +605,9 @@ def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None, to_
         extract_header: If True, extract header content from PDF (default: True)
         extract_footer: If True, extract footer content from PDF (default: True)
         clean_markdown: If True, clean markdown content to remove repetitive headers (default: False)
+        table_format: Format for table extraction ('inline', 'markdown', or 'html')
+        extract_images_flag: If True, extract images to separate files
+        extract_links_flag: If True, extract hyperlinks to JSON file
 
     Returns:
         tuple: (output_path, page_count)
@@ -388,8 +640,12 @@ def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None, to_
     ocr_params = {
         "document": DocumentURLChunk(document_url=signed_url.url),
         "model": model,
-        "include_image_base64": False,
+        "include_image_base64": extract_images_flag,
     }
+
+    # Add table format if not inline
+    if table_format != "inline":
+        ocr_params["table_format"] = table_format
 
     # Add header/footer extraction if supported (optional parameters)
     if not extract_header:
@@ -400,18 +656,27 @@ def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None, to_
     try:
         response = client.ocr.process(**ocr_params)
     except TypeError as e:
-        # If extract_header/extract_footer are not supported, retry without them
-        if "extract_header" in str(e) or "extract_footer" in str(e):
-            ocr_params = {
-                "document": DocumentURLChunk(document_url=signed_url.url),
-                "model": model,
-                "include_image_base64": False,
-            }
-            response = client.ocr.process(**ocr_params)
-            if not extract_header or not extract_footer:
-                print("  Note: Header/footer extraction control not supported by current API version")
-        else:
-            raise
+        # Handle unsupported parameters gracefully
+        error_msg = str(e)
+        unsupported_params = []
+
+        # Check which parameters are not supported
+        if "table_format" in error_msg:
+            unsupported_params.append("table_format")
+        if "extract_header" in error_msg or "extract_footer" in error_msg:
+            unsupported_params.append("header/footer extraction")
+
+        # Rebuild with minimal parameters
+        ocr_params = {
+            "document": DocumentURLChunk(document_url=signed_url.url),
+            "model": model,
+            "include_image_base64": extract_images_flag,
+        }
+
+        response = client.ocr.process(**ocr_params)
+
+        if unsupported_params:
+            print(f"  Note: {', '.join(unsupported_params)} not supported by current API version")
 
     # Filter pages if page_numbers is specified
     if page_numbers:
@@ -434,6 +699,34 @@ def convert_pdf_to_txt(pdf_path: Path, model: str, output_path: Path = None, to_
         page_count = len(response.pages)
 
     markdown_content = "\n\n".join(markdown_pages)
+
+    # Extract and embed images if requested
+    if extract_images_flag:
+        print("  Embedding images as base64...")
+        original_length = len(markdown_content)
+        markdown_content = embed_images_as_base64(response, markdown_content)
+        # Count embedded images by checking how many were added
+        if len(markdown_content) > original_length:
+            # Count image tags added
+            image_count = markdown_content.count('![Image ')
+            print(f"  Embedded {image_count} images in markdown")
+
+    # Extract and save hyperlinks if requested
+    if extract_links_flag:
+        print("  Extracting hyperlinks...")
+        links = extract_hyperlinks(response)
+        if links:
+            links_file = output_path.with_suffix('.json').with_stem(f"{output_path.stem}_links")
+            links_file.write_text(json.dumps(links, indent=2, ensure_ascii=False), encoding='utf-8')
+            print(f"  Saved {len(links)} hyperlinks to {links_file.name}")
+
+    # Save tables if requested
+    if table_format != "inline":
+        print(f"  Extracting tables as {table_format}...")
+        base_name = pdf_path.stem
+        table_count = save_tables(response, pdf_path.parent, base_name, table_format)
+        if table_count > 0:
+            print(f"  Saved {table_count} tables to {base_name}_tables/")
 
     # Clean markdown content if requested (before converting to text)
     if clean_markdown and not to_txt:
@@ -514,7 +807,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--keep",
         action="store_true",
-        help="Keep downloaded PDF file after processing (default: delete after OCR).",
+        help="When using --url, download and save the PDF file locally (default: process without downloading).",
     )
     parser.add_argument(
         "--pages",
@@ -538,6 +831,22 @@ def parse_args() -> argparse.Namespace:
         "--clean",
         action="store_true",
         help="Clean markdown output to remove repetitive headers while preserving page numbers, journal titles, and footnotes. Only works with --md output.",
+    )
+    parser.add_argument(
+        "--table-format",
+        choices=["inline", "markdown", "html"],
+        default="inline",
+        help="Table extraction format: 'inline' (default, tables in content), 'markdown' (separate .md files), 'html' (separate .html files).",
+    )
+    parser.add_argument(
+        "--extract-images",
+        action="store_true",
+        help="Embed images as base64 data URIs directly in markdown (self-contained, no separate files).",
+    )
+    parser.add_argument(
+        "--extract-links",
+        action="store_true",
+        help="Extract hyperlinks to {filename}_links.json file.",
     )
     format_group = parser.add_mutually_exclusive_group()
     format_group.add_argument(
@@ -591,26 +900,75 @@ def main() -> None:
         downloaded_pdf_path = None  # Track downloaded file for cleanup
         if args.url:
             try:
-                # Download PDF from URL to current directory
-                downloaded_pdf = download_pdf_from_url(args.url, Path.cwd())
-                downloaded_pdf_path = downloaded_pdf  # Store for cleanup
-                input_path = downloaded_pdf
+                # Determine output filename from URL
+                parsed_url = urlparse(args.url)
+                filename = os.path.basename(parsed_url.path)
+                if not filename or not filename.lower().endswith('.pdf'):
+                    filename = "downloaded_document.pdf"
 
-                # Process single downloaded file
-                target_file = input_path.with_suffix(output_extension)
-                if target_file.exists():
-                    response = input(f"File '{target_file.name}' already exists. Re-process? (y/N): ").strip().lower()
+                # Create output path
+                output_name = Path(filename).stem + output_extension
+                output_path = Path.cwd() / output_name
+
+                # Check if output already exists
+                if output_path.exists():
+                    response = input(f"File '{output_path.name}' already exists. Re-process? (y/N): ").strip().lower()
                     if response not in ['y', 'yes']:
                         print("Skipping processing.")
-                        # Clean up downloaded PDF if not keeping
-                        if not args.keep and downloaded_pdf_path and downloaded_pdf_path.exists():
-                            downloaded_pdf_path.unlink()
-                            print(f"Deleted downloaded PDF: {downloaded_pdf_path.name}")
                         return
 
-                pdf_files = [input_path]
-            except Exception as download_exc:
-                print(f"Error downloading PDF from URL: {download_exc}", file=sys.stderr)
+                    # Find unique filename
+                    counter = 1
+                    while True:
+                        new_name = f"{Path(filename).stem}_{counter}{output_extension}"
+                        output_path_candidate = Path.cwd() / new_name
+                        if not output_path_candidate.exists():
+                            output_path = output_path_candidate
+                            break
+                        counter += 1
+                    print(f"Output will be saved as: {output_path.name}")
+
+                print(f"Processing PDF from URL: {args.url}")
+
+                # Check if cleaning is requested with text output
+                clean_markdown = args.clean
+                if clean_markdown and to_txt:
+                    print("  Warning: --clean flag only works with markdown output (--md). Ignoring --clean.")
+                    clean_markdown = False
+
+                # Process directly from URL (no download needed unless --keep is specified)
+                output_path, page_count = process_pdf_from_url(
+                    args.url,
+                    args.model,
+                    output_path,
+                    to_txt,
+                    getattr(args, 'api_key', None),
+                    page_numbers,
+                    extract_header,
+                    extract_footer,
+                    clean_markdown,
+                    args.table_format,
+                    args.extract_images,
+                    args.extract_links
+                )
+
+                print(f"  ✓ Completed: {output_path.name} ({page_count} pages)")
+
+                # Download and keep PDF if --keep flag is specified
+                if args.keep:
+                    try:
+                        pdf_path = Path.cwd() / filename
+                        if not pdf_path.exists():
+                            downloaded_pdf = download_pdf_from_url(args.url, Path.cwd())
+                            print(f"Saved PDF: {downloaded_pdf.name}")
+                    except Exception as e:
+                        print(f"  Warning: Failed to save PDF: {e}")
+
+                print(f"\nProcessing complete!")
+                return
+
+            except Exception as url_exc:
+                print(f"Error processing PDF from URL: {url_exc}", file=sys.stderr)
                 sys.exit(1)
         else:
             # Handle local file/directory input
@@ -664,7 +1022,7 @@ def main() -> None:
                 if clean_markdown and to_txt:
                     print("  Warning: --clean flag only works with markdown output (--md). Ignoring --clean.")
                     clean_markdown = False
-                    
+
                 output_path, page_count = convert_pdf_to_txt(
                     pdf_file,
                     args.model,
@@ -674,7 +1032,10 @@ def main() -> None:
                     page_numbers,
                     extract_header,
                     extract_footer,
-                    clean_markdown
+                    clean_markdown,
+                    args.table_format,
+                    args.extract_images,
+                    args.extract_links
                 )
 
                 processed_count += 1
